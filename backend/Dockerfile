@@ -23,11 +23,16 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# CrÃ©er les dossiers manquants pour Ã©viter les erreurs de scan
+# Créer les dossiers manquants
+RUN mkdir -p /var/www/html/storage/framework/cache/data
+RUN mkdir -p /var/www/html/storage/framework/sessions
+RUN mkdir -p /var/www/html/storage/framework/views
+RUN mkdir -p /var/www/html/storage/logs
+RUN mkdir -p /var/www/html/bootstrap/cache
 RUN mkdir -p /var/www/html/vendor/symfony/polyfill-php84/Resources/stubs
 RUN mkdir -p /var/www/html/vendor/dompdf/dompdf/lib
 
-# Installation des dÃ©pendances sans autoloader, sans optimisation
+# Installation des dépendances sans autoloader
 RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev --no-autoloader
 
 # Permissions
