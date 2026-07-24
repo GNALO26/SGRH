@@ -23,13 +23,11 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Créer les dossiers manquants pour éviter les erreurs de scan
-RUN mkdir -p /var/www/html/vendor/symfony/polyfill-php84/Resources/stubs
-RUN mkdir -p /var/www/html/vendor/dompdf/dompdf/lib
-
-# Installation sans script, sans autoloader, puis génération manuelle
+# Installation des dépendances sans autoloader, sans optimisation
 RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev --no-autoloader
-RUN composer dump-autoload --optimize
+
+# Génération de l'autoloader standard (sans --optimize)
+RUN composer dump-autoload
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
