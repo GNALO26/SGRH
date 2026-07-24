@@ -14,16 +14,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Forcer JSON sur toutes les requêtes
-        $middleware->prepend(\App\Http\Middleware\CorsMiddleware::class);
         $middleware->prepend(\App\Http\Middleware\ForceJsonResponse::class);
         // Alias pour le middleware de rôle
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
+        // CorsMiddleware supprimé (géré directement dans index.php)
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Personnaliser le rendu des exceptions pour renvoyer du JSON
         $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e) {
-            return true; // toujours JSON
+            return true;
         });
     })->create();
