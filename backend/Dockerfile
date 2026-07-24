@@ -22,7 +22,12 @@ WORKDIR /var/www/html
 COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+# Installation avec --no-scripts pour éviter les erreurs de scan de classes
+RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev
+
+# Régénération manuelle de l'autoloader optimisé
+RUN composer dump-autoload --optimize
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
