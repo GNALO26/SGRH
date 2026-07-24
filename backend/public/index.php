@@ -4,10 +4,10 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
-// ========== GESTION CORS (ajoutée avant toute chose) ==========
+// ========== GESTION CORS (définitif) ==========
 if (isset($_SERVER['HTTP_ORIGIN'])) {
-    $allowed_origin = env('CORS_ALLOWED_ORIGINS', 'https://sgrhromas.netlify.app');
-    header("Access-Control-Allow-Origin: $allowed_origin");
+    // On autorise exactement l'origine qui fait la requête
+    header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
     header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN');
     header('Access-Control-Allow-Credentials: true');

@@ -13,8 +13,8 @@ class DatabaseSeeder extends Seeder
         if (User::count() === 0) {
             User::create([
                 'name' => 'Administrateur',
-                'email' => env('ADMIN_EMAIL', 'admin@sgrh.com'),
-                'password' => Hash::make(env('ADMIN_PASSWORD', 'Admin1234!')),
+                'email' => env('ADMIN_EMAIL', 'alfredsossa17@gmail.com'),
+                'password' => Hash::make(env('ADMIN_PASSWORD', 'SGRHpro2026JONAO')),
                 'role' => 'admin',
             ]);
         }
