@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Forcer JSON sur toutes les requêtes
+        $middleware->prepend(\App\Http\Middleware\CorsMiddleware::class);
         $middleware->prepend(\App\Http\Middleware\ForceJsonResponse::class);
         // Alias pour le middleware de rôle
         $middleware->alias([
