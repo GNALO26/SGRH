@@ -23,19 +23,12 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Créer les dossiers manquants
-RUN mkdir -p /var/www/html/storage/framework/cache/data
-RUN mkdir -p /var/www/html/storage/framework/sessions
-RUN mkdir -p /var/www/html/storage/framework/views
-RUN mkdir -p /var/www/html/storage/logs
-RUN mkdir -p /var/www/html/bootstrap/cache
-RUN mkdir -p /var/www/html/vendor/symfony/polyfill-php84/Resources/stubs
-RUN mkdir -p /var/www/html/vendor/dompdf/dompdf/lib
+# Installation COMPLÈTE (ne pas utiliser --no-dev)
+RUN composer install --no-interaction --prefer-dist --no-scripts
 
-# Installation des dépendances sans autoloader
-RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev --no-autoloader
+# Régénérer l'autoloader proprement
+RUN composer dump-autoload --optimize
 
-# Permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
