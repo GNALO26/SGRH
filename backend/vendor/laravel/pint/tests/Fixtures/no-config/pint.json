@@ -1,7 +1,0 @@
-{
-    "rules": {
-        "concat_space": {
-            "spacing": "none"
-        }
-    }
-}
