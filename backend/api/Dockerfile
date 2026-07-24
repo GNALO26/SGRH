@@ -2,7 +2,7 @@ FROM php:8.2-apache
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Mettre à jour la liste des paquets et installer les dépendances système
+# Installer les dépendances système
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     git \
     unzip \
@@ -12,11 +12,10 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
-    libicu-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Installer les extensions PHP nécessaires (intl a maintenant sa dépendance icu résolue)
-RUN docker-php-ext-install pdo_pgsql pdo_mysql zip gd mbstring exif pcntl bcmath intl
+# Installer les extensions PHP (sans intl)
+RUN docker-php-ext-install pdo_pgsql pdo_mysql zip gd mbstring exif pcntl bcmath
 
 # Activer le module rewrite Apache
 RUN a2enmod rewrite
