@@ -1,0 +1,50 @@
+name: Static Analysis
+
+on: ['push', 'pull_request']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phpstan:
+    runs-on: ubuntu-latest
+
+    name: Static
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # 2.37.1
+      with:
+        php-version: 8.2
+        tools: composer:v2
+        coverage: none
+
+    - name: Get Composer cache directory
+      id: composer-cache
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache Composer dependencies
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-php-8.2-composer-${{ hashFiles('**/composer.json') }}
+        restore-keys: ${{ runner.os }}-php-8.2-composer-
+
+    - name: Set Collision version
+      run: composer config version "8.x-dev"
+
+    - name: Install Dependencies
+      run: composer update --no-interaction --prefer-dist --no-progress --ansi
+
+    - name: Run Style Tests
+      run: composer test:lint
+
+    - name: Run Types Tests
+      run: composer test:types

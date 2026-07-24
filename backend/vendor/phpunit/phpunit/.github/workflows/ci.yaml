@@ -1,0 +1,594 @@
+# https://docs.github.com/en/actions
+
+on:
+  pull_request:
+    paths-ignore:
+      - ".editorconfig"
+      - "LICENSE"
+      - "**.md"
+      - "**.png"
+      - "**.svg"
+  push:
+    paths-ignore:
+      - ".editorconfig"
+      - "LICENSE"
+      - "**.md"
+      - "**.png"
+      - "**.svg"
+
+name: CI
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  COMPOSER_ROOT_VERSION: "11.5.x-dev"
+  PHP_VERSION: 8.4
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-validation:
+    name: Dependency Validation
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: none, ctype, curl, dom, json, libxml, mbstring, openssl, phar, soap, tokenizer, xmlwriter, pcntl
+          coverage: none
+          tools: none
+
+      - name: Ensure that composer.json is valid
+        run: ./tools/composer validate --no-ansi --strict composer.json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        shell: bash
+        run: |
+          echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer cache directory
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies with Composer
+        run: ./tools/composer install --no-interaction --no-ansi --no-progress
+
+      - name: Ensure that dependencies do not have known security vulnerabilities and are not abandoned
+        run: ./tools/composer audit --no-ansi
+
+  coding-guidelines:
+    name: Coding Guidelines
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: none, iconv, json, phar, tokenizer
+          coverage: none
+          tools: none
+
+      - name: Cache PHP-CS-Fixer cache directory
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .php-cs-fixer.cache
+          key: ${{ runner.os }}-php-cs-fixer-${{ github.ref }}-
+          restore-keys: |
+            ${{ runner.os }}-php-cs-fixer-${{ github.ref }}-
+
+      - name: Run PHP-CS-Fixer
+        run: ./tools/php-cs-fixer check --cache-file=.php-cs-fixer.cache --show-progress=dots --verbose
+
+  static-analysis:
+    name: Static Analysis
+
+    needs:
+      - dependency-validation
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        shell: bash
+        run: |
+          echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer cache directory
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies with Composer
+        run: ./tools/composer install --no-interaction --no-ansi --no-progress
+
+      - name: Run PHPStan
+        run: ./tools/phpstan analyse --no-progress --error-format=github
+
+  unit-tests:
+    name: Unit Tests
+
+    needs:
+      - dependency-validation
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    env:
+      PHP_EXTENSIONS: none, ctype, curl, dom, json, libxml, mbstring, openssl, phar, soap, tokenizer, xmlwriter, pcntl
+      PHP_INI_VALUES: memory_limit=-1, assert.exception=1, zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+        php-version:
+          - "8.2"
+          - "8.3"
+          - "8.4"
+          - "8.5"
+          - "8.6"
+
+    steps:
+      - name: Configure Git to avoid issues with line endings
+        if: matrix.os == 'windows-latest'
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP with extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_VALUES }}
+          tools: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        shell: bash
+        run: |
+          echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer cache directory
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies with Composer
+        run: php ./tools/composer install --no-ansi --no-interaction --no-progress
+
+      - name: Run tests with PHPUnit
+        run: php ./phpunit --testsuite unit --order-by depends,random --display-all-issues
+
+  end-to-end-tests:
+    name: End-to-End Tests
+
+    needs:
+      - unit-tests
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    env:
+      PHP_EXTENSIONS: none, ctype, curl, dom, json, libxml, mbstring, openssl, pdo, phar, soap, tokenizer, xmlwriter, pcntl
+      PHP_INI_VALUES: assert.exception=1, zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+        php-version:
+          - "8.2"
+          - "8.3"
+          - "8.4"
+          - "8.5"
+          - "8.6"
+
+    steps:
+      - name: Configure Git to avoid issues with line endings
+        if: matrix.os == 'windows-latest'
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP with extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_VALUES }}
+          tools: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        shell: bash
+        run: |
+          echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer cache directory
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies with Composer
+        run: php ./tools/composer install --no-ansi --no-interaction --no-progress
+
+      - name: Run tests with PHPUnit
+        run: php ./phpunit --testsuite end-to-end --order-by depends,random --display-all-issues
+
+  code-coverage:
+    name: Code Coverage
+
+    needs:
+      - end-to-end-tests
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP with extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: xdebug
+          extensions: none, ctype, curl, dom, json, libxml, mbstring, pdo, phar, soap, tokenizer, xmlwriter, pcntl
+          ini-values: assert.exception=1, zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
+          tools: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        shell: bash
+        run: |
+          echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer cache directory
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies with Composer
+        run: ./tools/composer install --no-ansi --no-interaction --no-progress
+
+      - name: Cache PHPUnit's static analysis cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .phpunit.cache/code-coverage
+          key: php-code-coverage-static-analysis-cache-${{ hashFiles('src/**/*.php') }}
+          restore-keys: |
+            php-code-coverage-static-analysis-cache-
+
+      - name: Warm PHPUnit's static analysis cache
+        run: ./phpunit --warm-coverage-cache
+
+      - name: Collect code coverage with PHPUnit
+        run: ./phpunit --log-junit test-results.xml --coverage-clover=code-coverage.xml
+
+      - name: Upload test results to Codecov.io
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          disable_search: true
+          files: ./test-results.xml
+
+      - name: Upload code coverage data to Codecov.io
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: coverage
+          disable_search: true
+          files: ./code-coverage.xml
+
+  build-phar:
+    name: Build PHAR
+
+    needs:
+      - end-to-end-tests
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PHP_EXTENSIONS: none, ctype, dom, json, fileinfo, iconv, libxml, mbstring, phar, soap, tokenizer, xmlwriter
+      PHP_INI_VALUES: assert.exception=1, phar.readonly=0, zend.assertions=1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP with extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_VALUES }}
+          tools: none
+
+      - name: Install java
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: zulu
+          java-version: 11
+
+      - name: Build PHAR
+        run: ant phar-snapshot
+
+      - name: Upload PHAR
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phpunit-snapshot-phar
+          overwrite: true
+          path: ./build/artifacts/phpunit-snapshot.phar
+          retention-days: 7
+
+  test-phar:
+    name: Test PHAR
+
+    needs:
+      - build-phar
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PHP_EXTENSIONS: none, ctype, curl, dom, json, fileinfo, iconv, libxml, mbstring, phar, soap, tokenizer, xmlwriter, pcntl
+      PHP_INI_VALUES: assert.exception=1, phar.readonly=0, zend.assertions=1
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version:
+          - "8.2"
+          - "8.3"
+          - "8.4"
+          - "8.5"
+          - "8.6"
+
+        coverage:
+          - pcov
+          - xdebug
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use local branch
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BRANCH="$HEAD_REF"
+          else
+            BRANCH="$REF_NAME"
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git branch "$BRANCH" HEAD
+          git checkout "$BRANCH"
+
+      - name: Install PHP with extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: ${{ matrix.coverage }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_VALUES }}
+          tools: none
+
+      - name: Install java
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: zulu
+          java-version: 11
+
+      - name: Download PHAR
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: phpunit-snapshot-phar
+          path: ./build/artifacts/
+
+      - name: Make PHAR executable
+        run: chmod +x ./build/artifacts/phpunit-snapshot.phar
+
+      - name: Run PHAR-specific tests
+        run: ant run-phar-specific-tests
