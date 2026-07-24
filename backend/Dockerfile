@@ -23,10 +23,11 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Installation avec --no-scripts pour éviter les erreurs de scan de classes
-RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev
+# Créer le dossier manquant pour éviter l'erreur de scan
+RUN mkdir -p /var/www/html/vendor/symfony/polyfill-php84/Resources/stubs
 
-# Régénération manuelle de l'autoloader optimisé
+# Installation sans script, sans autoloader, puis génération manuelle
+RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev --no-autoloader
 RUN composer dump-autoload --optimize
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
