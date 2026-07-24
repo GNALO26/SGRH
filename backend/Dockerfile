@@ -19,7 +19,6 @@ RUN a2enmod rewrite
 
 WORKDIR /var/www/html
 
-# Copier uniquement le code source (sans vendor)
 COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -27,8 +26,11 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # Créer les dossiers de cache Laravel
 RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 
-# Installer les dépendances depuis zéro (composer.lock est présent)
-RUN composer install --no-interaction --prefer-dist --no-dev --no-scripts --no-autoloader
+# Supprimer l'éventuel dossier vendor corrompu
+RUN rm -rf vendor
+
+# Installer les dépendances depuis zéro
+RUN composer install --no-interaction --prefer-dist --no-dev --no-scripts --no-autoloader --ignore-platform-reqs
 
 # Régénérer l'autoloader
 RUN composer dump-autoload
