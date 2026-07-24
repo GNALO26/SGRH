@@ -1,0 +1,21 @@
+parameters:
+    tmpDir: ./build/cache/phpstan
+    level: max
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    paths:
+        - ./src
+        - ./tests
+    bootstrapFiles:
+        - ./tests/static-analysis/stubs.php
+    excludePaths:
+        analyse:
+            - ./tests/ExpectedBehaviorTest.php
+            - ./tests/static-analysis/stubs.php
+    ignoreErrors:
+        -
+            identifier: method.resultUnused
+            path: tests/*
+        -
+            identifier: staticMethod.resultUnused
+            path: tests/*
