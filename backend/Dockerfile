@@ -23,10 +23,11 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Créer le dossier manquant pour éviter l'erreur de scan
+# CrÃ©er les dossiers manquants pour Ã©viter les erreurs de scan
 RUN mkdir -p /var/www/html/vendor/symfony/polyfill-php84/Resources/stubs
+RUN mkdir -p /var/www/html/vendor/dompdf/dompdf/lib
 
-# Installation sans script, sans autoloader, puis génération manuelle
+# Installation sans script, sans autoloader, puis gÃ©nÃ©ration manuelle
 RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev --no-autoloader
 RUN composer dump-autoload --optimize
 
