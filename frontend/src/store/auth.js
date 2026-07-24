@@ -14,13 +14,26 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     async login(credentials) {
-      const { data } = await api.post('/login', credentials)
-      this.token = data.token
-      this.user = data.user
-      this.requiresExplanation = data.requires_explanation
-      this.pendingAbsences = data.pending_absences
-      localStorage.setItem('token', data.token)
-      return data
+      try {
+        const { data } = await api.post('/login', credentials)
+        // Vérifier que les données nécessaires sont présentes
+        if (!data.token || !data.user) {
+          throw new Error('Réponse invalide du serveur')
+        }
+        this.token = data.token
+        this.user = data.user
+        this.requiresExplanation = data.requires_explanation
+        this.pendingAbsences = data.pending_absences
+        localStorage.setItem('token', data.token)
+        return data
+      } catch (error) {
+        // Si l'erreur vient d'une réponse API (ex: 422, 401)
+        if (error.response?.data?.message) {
+          throw new Error(error.response.data.message)
+        }
+        // Si c'est notre propre erreur (jetée ci-dessus)
+        throw error
+      }
     },
     async fetchUser() {
       const { data } = await api.get('/me')
