@@ -23,18 +23,17 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Créer tous les dossiers de cache Laravel AVANT l'autoload dump
-RUN mkdir -p /var/www/html/storage/framework/cache/data
-RUN mkdir -p /var/www/html/storage/framework/sessions
-RUN mkdir -p /var/www/html/storage/framework/views
-RUN mkdir -p /var/www/html/storage/logs
-RUN mkdir -p /var/www/html/bootstrap/cache
+# Créer les dossiers de cache Laravel AVANT toute commande
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 
-# Installation des dépendances sans autoloader
-RUN composer install --no-interaction --prefer-dist --no-scripts --no-autoloader
+# Supprimer le composer.lock pour éviter les références obsolètes
+RUN rm -f composer.lock
 
-# Maintenant on peut régénérer l'autoloader en toute sécurité
-RUN composer dump-autoload --optimize
+# Installation complète (sans --no-dev) avec autoloader
+RUN composer install --no-interaction --prefer-dist --no-scripts --no-dev
+
+# Régénérer l'autoloader proprement (sans --optimize)
+RUN composer dump-autoload
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
