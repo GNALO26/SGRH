@@ -1,0 +1,87 @@
+services:
+  # Base de données PostgreSQL
+  - type: web
+    name: sgrh
+    env: docker
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health  # à créer si nécessaire
+    envVars:
+      - key: APP_NAME
+        value: SGRH
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        value: base64:...   # remplacez par votre clé
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        fromService:
+          type: web
+          name: sgrh
+          property: url
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromService:
+          type: pgsql
+          name: sgrh-db
+          property: host
+      - key: DB_PORT
+        fromService:
+          type: pgsql
+          name: sgrh-db
+          property: port
+      - key: DB_DATABASE
+        fromService:
+          type: pgsql
+          name: sgrh-db
+          property: database
+      - key: DB_USERNAME
+        fromService:
+          type: pgsql
+          name: sgrh-db
+          property: username
+      - key: DB_PASSWORD
+        fromService:
+          type: pgsql
+          name: sgrh-db
+          property: password
+      - key: ADMIN_EMAIL
+        value: alfredsossa17@gmail.com
+      - key: ADMIN_PASSWORD
+        value: Admin1234!
+      - key: CLOUDINARY_URL
+        sync: false   # valeur sensible, à définir manuellement dans l'UI Render après création
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        value: alfredsossa17@gmail.com
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_FROM_ADDRESS
+        value: alfredsossa17@gmail.com
+      - key: MAIL_FROM_NAME
+        value: SGRH
+      - key: SESSION_DRIVER
+        value: file
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://votre-app.netlify.app
+
+  # Base de données PostgreSQL
+  - type: pgsql
+    name: sgrh-db
+    region: oregon
+    plan: free
+    ipAllowList: []   # ou autoriser l'accès externe si nécessaire
