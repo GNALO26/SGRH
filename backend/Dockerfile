@@ -14,7 +14,6 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 
 RUN docker-php-ext-install pdo_pgsql pdo_mysql zip gd mbstring exif pcntl bcmath
 
-# Activer le module rewrite
 RUN a2enmod rewrite
 
 WORKDIR /var/www/html
@@ -30,10 +29,14 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Copier et activer notre configuration Apache
+# Configuration Apache personnalisée
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 RUN a2ensite 000-default.conf
 
+# Copier le script de démarrage et le rendre exécutable
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+CMD ["/usr/local/bin/start.sh"]
