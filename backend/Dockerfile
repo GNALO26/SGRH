@@ -23,18 +23,16 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Créer les dossiers de cache Laravel
 RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 
-# Installer les dépendances PHP
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-# Permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Copier notre configuration Apache personnalisée
+# Copier et activer notre configuration Apache
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
+RUN a2ensite 000-default.conf
 
 EXPOSE 80
 
