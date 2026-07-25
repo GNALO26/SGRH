@@ -127,10 +127,7 @@ async function saveEmployee() {
       errorMessage = errors[firstField][0]
     } else if (e.response?.data?.message) {
       errorMessage = e.response.data.message
-    } else if (e.message) {
-      errorMessage = e.message
     }
-    console.error('Erreur sauvegarde employé', e)
     Swal.fire('Erreur', errorMessage, 'error')
   }
 }
@@ -144,32 +141,16 @@ async function changePassword(emp) {
     inputValidator: (v) => !v ? 'Champ requis' : null
   })
   if (password) {
-    try {
-      await api.patch(`/admin/employees/${emp.id}/password`, { password, password_confirmation: password })
-      Swal.fire('Succès', 'Mot de passe mis à jour', 'success')
-    } catch (e) {
-      Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
-    }
+    await api.patch(`/admin/employees/${emp.id}/password`, { password, password_confirmation: password })
+    Swal.fire('Succès', 'Mot de passe mis à jour', 'success')
   }
 }
 
 async function deleteEmployee(id) {
   const confirm = await Swal.fire({ title: 'Confirmer la suppression ?', icon: 'warning', showCancelButton: true })
   if (confirm.isConfirmed) {
-    try {
-      await api.delete(`/admin/employees/${id}`)
-      Swal.fire('Succès', 'Employé supprimé', 'success')
-      fetchEmployees()
-    } catch (e) {
-      let errorMessage = 'Erreur lors de la suppression'
-      if (e.response?.data?.message) {
-        errorMessage = e.response.data.message
-      } else if (e.message) {
-        errorMessage = e.message
-      }
-      console.error('Erreur suppression employé', e)
-      Swal.fire('Erreur', errorMessage, 'error')
-    }
+    await api.delete(`/admin/employees/${id}`)
+    fetchEmployees()
   }
 }
 
