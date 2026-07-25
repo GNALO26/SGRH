@@ -1,6 +1,6 @@
 <template>
   <div class="grid grid-cols-7 gap-1 text-center">
-    <div v-for="day in daysOfWeek" :key="day" class="text-xs font-medium text-muted py-1">{{ day }}</div>
+    <div v-for="day in daysOfWeek" :key="day" class="text-xs font-medium text-gray-500 dark:text-gray-400 py-1">{{ day }}</div>
     <div
       v-for="(day, idx) in calendarDays"
       :key="idx"
@@ -41,22 +41,25 @@ const calendarDays = computed(() => {
   }
 
   for (let d = 1; d <= totalDays; d++) {
-    const dateStr = `${props.year}-${String(props.month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    const dateStr = `${props.year}-${String(props.month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
     const event = props.events.find(e => e.date === dateStr)
     let dotColor = ''
-    let classNames = 'text-primary hover:bg-card-hover cursor-default'
+    let classNames = 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-default'
     if (event) {
       switch (event.status) {
         case 'present':
-          dotColor = 'bg-green-500'; classNames += ' font-semibold'; break
+          dotColor = 'bg-green-500'
+          classNames += ' font-semibold'
+          break
         case 'late':
-          dotColor = 'bg-orange-500'; break
+          dotColor = 'bg-orange-500'
+          break
         case 'absent':
-          dotColor = 'bg-red-500'; break
+          dotColor = 'bg-red-500'
+          break
         case 'leave':
-          dotColor = 'bg-blue-500'; break
-        case 'holiday':
-          dotColor = 'bg-purple-500'; break
+          dotColor = 'bg-blue-500'
+          break
       }
     }
     days.push({ day: d, class: classNames, dot: !!event, dotColor })

@@ -8,6 +8,7 @@ use App\Services\ActivityService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\EmployeeCreatedMail;
 
@@ -34,24 +35,37 @@ class EmployeeController extends Controller
             'matricule'   => 'nullable|string',
             'position'    => 'nullable|string',
             'department'  => 'nullable|string',
-        ], ['email.unique' => 'Cet email est déjà utilisé par un autre employé.']);
+        ], [
+            'email.unique' => 'Cet email est déjà utilisé par un autre employé.',
+        ]);
 
         $plainPassword = $validated['password'];
         $validated['password'] = Hash::make($plainPassword);
         $validated['role'] = 'employee';
 
-        $employee = User::create($validated);
-
         try {
-            Mail::to($employee->email)->send(new EmployeeCreatedMail($employee, $plainPassword));
+            $employee = User::create($validated);
+
+            // Log et notification
+            $this->activityService->log(request()->user(), 'employé_créé', "L'employé {$employee->name} a été créé.", 'fas fa-user-plus');
+            $this->notificationService->createForAdmins("Nouvel employé : {$employee->name}", 'fas fa-user-plus');
+
+            // Envoi d'email (non bloquant)
+            try {
+                Mail::to($employee->email)->send(new EmployeeCreatedMail($employee, $plainPassword));
+            } catch (\Exception $mailException) {
+                Log::error('Erreur envoi email de bienvenue', ['email' => $employee->email, 'error' => $mailException->getMessage()]);
+            }
+
+            return response()->json($employee, 201);
+
         } catch (\Exception $e) {
-            report($e);
+            Log::error('Erreur création employé', [
+                'input' => $request->except('password'),
+                'error' => $e->getMessage()
+            ]);
+            return response()->json(['message' => 'Erreur lors de la création. Veuillez vérifier les logs.'], 500);
         }
-
-        $this->activityService->log(request()->user(), 'employé_créé', "L'employé {$employee->name} a été créé.", 'fas fa-user-plus');
-        $this->notificationService->createForAdmins("Nouvel employé : {$employee->name}", 'fas fa-user-plus');
-
-        return response()->json($employee, 201);
     }
 
     public function show(User $employee)
@@ -69,7 +83,9 @@ class EmployeeController extends Controller
             'matricule'   => 'nullable|string',
             'position'    => 'nullable|string',
             'department'  => 'nullable|string',
-        ], ['email.unique' => 'Cet email est déjà utilisé par un autre employé.']);
+        ], [
+            'email.unique' => 'Cet email est déjà utilisé par un autre employé.',
+        ]);
 
         $employee->update($validated);
         return response()->json($employee);
@@ -77,7 +93,9 @@ class EmployeeController extends Controller
 
     public function updatePassword(Request $request, User $employee)
     {
-        $request->validate(['password' => 'required|string|min:8|confirmed']);
+        $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
         $employee->update(['password' => Hash::make($request->password)]);
         return response()->json(['message' => 'Mot de passe mis à jour.']);
     }
