@@ -40,11 +40,7 @@ class DocumentController extends Controller
         ]);
 
         if ($doc->employee_id) {
-            $this->notificationService->createForUser(
-                $doc->employee,
-                "Nouveau document : {$doc->title}",
-                'fas fa-file-alt'
-            );
+            $this->notificationService->createForUser($doc->employee, "Nouveau document : {$doc->title}", 'fas fa-file-alt');
         }
 
         return response()->json($doc, 201);

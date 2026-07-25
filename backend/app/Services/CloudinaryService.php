@@ -22,7 +22,7 @@ class CloudinaryService
     /**
      * @throws Exception
      */
-    public function upload(UploadedFile $file, string $folder = 'sirh'): string
+    public function upload(UploadedFile $file, string $folder = 'sgrh'): string
     {
         $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
             'folder' => $folder,

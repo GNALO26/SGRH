@@ -23,17 +23,11 @@ class LeaveController extends Controller
         return response()->json($leaves);
     }
 
-    public function update(Request $request, $id) // <-- changement ici : on reçoit l'ID brut
+    public function update(Request $request, $id)
     {
         $request->validate(['status' => 'required|in:approved,rejected']);
 
-        $leave = Leave::findOrFail($id); // <-- chargement manuel du modèle
-
-        Log::info('Tentative validation congé', [
-            'leave_id' => $leave->id,
-            'current_status' => $leave->status,
-            'request_status' => $request->status,
-        ]);
+        $leave = Leave::findOrFail($id);
 
         if ($leave->status !== 'pending') {
             return response()->json(['message' => 'Cette demande a déjà été traitée.'], 409);
@@ -65,18 +59,20 @@ class LeaveController extends Controller
                 );
             }
 
+            // Notification aux admins
+            $this->notificationService->createForAdmins(
+                "Congé {$statusText} : {$employee?->name} ({$start} - {$end})",
+                'fas fa-calendar-check'
+            );
+
             DB::commit();
 
             return response()->json($leave->fresh('user'));
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Erreur validation congé', [
-                'leave_id' => $leave->id,
-                'error'    => $e->getMessage(),
-                'trace'    => $e->getTraceAsString(),
-            ]);
-            return response()->json(['message' => 'Erreur serveur. Voir les logs.'], 500);
+            Log::error('Erreur validation congé', ['leave_id' => $leave->id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur.'], 500);
         }
     }
 }

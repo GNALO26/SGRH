@@ -17,7 +17,7 @@ class AssistanceController extends Controller
             return response()->json($requests);
         } catch (\Exception $e) {
             Log::error('Erreur assistance index', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur interne. Vérifiez que la table assistance_requests existe.'], 500);
+            return response()->json(['message' => 'Erreur interne.'], 500);
         }
     }
 

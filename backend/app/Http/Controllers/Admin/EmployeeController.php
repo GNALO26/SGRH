@@ -34,9 +34,7 @@ class EmployeeController extends Controller
             'matricule'   => 'nullable|string',
             'position'    => 'nullable|string',
             'department'  => 'nullable|string',
-        ], [
-            'email.unique' => 'Cet email est déjà utilisé par un autre employé.',
-        ]);
+        ], ['email.unique' => 'Cet email est déjà utilisé par un autre employé.']);
 
         $plainPassword = $validated['password'];
         $validated['password'] = Hash::make($plainPassword);
@@ -50,12 +48,8 @@ class EmployeeController extends Controller
             report($e);
         }
 
-        $this->activityService->log(
-            request()->user(),
-            'employé_créé',
-            "L'employé {$employee->name} a été créé.",
-            'fas fa-user-plus'
-        );
+        $this->activityService->log(request()->user(), 'employé_créé', "L'employé {$employee->name} a été créé.", 'fas fa-user-plus');
+        $this->notificationService->createForAdmins("Nouvel employé : {$employee->name}", 'fas fa-user-plus');
 
         return response()->json($employee, 201);
     }
@@ -75,21 +69,16 @@ class EmployeeController extends Controller
             'matricule'   => 'nullable|string',
             'position'    => 'nullable|string',
             'department'  => 'nullable|string',
-        ], [
-            'email.unique' => 'Cet email est déjà utilisé par un autre employé.',
-        ]);
+        ], ['email.unique' => 'Cet email est déjà utilisé par un autre employé.']);
+
         $employee->update($validated);
         return response()->json($employee);
     }
 
     public function updatePassword(Request $request, User $employee)
     {
-        $request->validate([
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-        $employee->update([
-            'password' => Hash::make($request->password),
-        ]);
+        $request->validate(['password' => 'required|string|min:8|confirmed']);
+        $employee->update(['password' => Hash::make($request->password)]);
         return response()->json(['message' => 'Mot de passe mis à jour.']);
     }
 
@@ -98,13 +87,7 @@ class EmployeeController extends Controller
         if ($employee->role !== 'employee') abort(404);
         $employee->delete();
 
-        $this->activityService->log(
-            request()->user(),
-            'employé_supprimé',
-            "L'employé {$employee->name} a été supprimé.",
-            'fas fa-user-minus'
-        );
-
+        $this->activityService->log(request()->user(), 'employé_supprimé', "L'employé {$employee->name} a été supprimé.", 'fas fa-user-minus');
         return response()->json(null, 204);
     }
 }

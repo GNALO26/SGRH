@@ -18,17 +18,13 @@ class RetardAuthorizationController extends Controller
 
     public function index(): JsonResponse
     {
-        $authorizations = RetardAuthorization::with('user')
-            ->latest()
-            ->paginate(20);
+        $authorizations = RetardAuthorization::with('user')->latest()->paginate(20);
         return response()->json($authorizations);
     }
 
     public function update(Request $request, RetardAuthorization $retardAuthorization): JsonResponse
     {
-        $request->validate([
-            'status' => 'required|in:approved,rejected',
-        ]);
+        $request->validate(['status' => 'required|in:approved,rejected']);
 
         $retardAuthorization->update([
             'status'      => $request->status,
@@ -42,7 +38,7 @@ class RetardAuthorizationController extends Controller
             $this->activityService->log(
                 $request->user(),
                 "autorisation_retard_{$request->status}",
-                "L'autorisation de retard de {$employee->name} pour le {$retardAuthorization->date->format('d/m/Y')} a été {$statusText}.",
+                "Autorisation de retard de {$employee->name} pour le {$retardAuthorization->date->format('d/m/Y')} {$statusText}.",
                 'fas fa-clock'
             );
 
@@ -56,10 +52,16 @@ class RetardAuthorizationController extends Controller
             $this->activityService->log(
                 $request->user(),
                 "autorisation_retard_{$request->status}",
-                "Une autorisation de retard a été {$statusText} (utilisateur supprimé).",
+                "Autorisation de retard {$statusText} (utilisateur supprimé).",
                 'fas fa-clock'
             );
         }
+
+        // Notification aux admins
+        $this->notificationService->createForAdmins(
+            "Autorisation retard {$statusText} : {$employee?->name} ({$retardAuthorization->date->format('d/m/Y')})",
+            'fas fa-clock'
+        );
 
         return response()->json($retardAuthorization);
     }
