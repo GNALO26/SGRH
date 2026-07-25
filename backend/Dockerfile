@@ -14,19 +14,19 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 
 RUN docker-php-ext-install pdo_pgsql pdo_mysql zip gd mbstring exif pcntl bcmath
 
+# Activer le module rewrite et autoriser les .htaccess
 RUN a2enmod rewrite
+RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
+RUN sed -i '/<Directory \/var\/www\/html>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
 WORKDIR /var/www/html
 
-# Copier le code source (vendor sera exclu via .dockerignore)
 COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Créer les dossiers de cache Laravel indispensables
 RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 
-# Installer les dépendances PROPRES (sans --no-dev pour éviter les paquets de test)
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
