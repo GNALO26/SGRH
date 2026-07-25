@@ -2,36 +2,26 @@
 
 namespace App\Services;
 
-use Cloudinary\Cloudinary;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\UploadedFile;
 use Exception;
 
 class CloudinaryService
 {
-    protected Cloudinary $cloudinary;
-
-    public function __construct()
-    {
-        $url = env('CLOUDINARY_URL');
-        if (!$url) {
-            throw new Exception('CLOUDINARY_URL is not set.');
-        }
-        $this->cloudinary = new Cloudinary($url);
-    }
-
-    /**
-     * @throws Exception
-     */
     public function upload(UploadedFile $file, string $folder = 'sgrh'): string
     {
-        $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
+        $result = Cloudinary::upload($file->getRealPath(), [
             'folder' => $folder,
             'secure' => true,
         ]);
 
-        $url = $result['secure_url'] ?? null;
+        if (!$result || !method_exists($result, 'getSecurePath')) {
+            throw new Exception('Réponse Cloudinary invalide. Vérifiez votre configuration CLOUDINARY_URL.');
+        }
+
+        $url = $result->getSecurePath();
         if (!$url) {
-            throw new Exception('Impossible de récupérer l\'URL sécurisée.');
+            throw new Exception('Impossible d\'obtenir l\'URL sécurisée depuis Cloudinary.');
         }
 
         return $url;
