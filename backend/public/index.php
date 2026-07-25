@@ -6,7 +6,7 @@ define('LARAVEL_START', microtime(true));
 
 // ========== GESTION CORS (ajoutée avant toute chose) ==========
 if (isset($_SERVER['HTTP_ORIGIN'])) {
-    $allowed_origin = env('CORS_ALLOWED_ORIGINS', 'https://sgrhromas.netlify.app');
+    $allowed_origin = getenv('CORS_ALLOWED_ORIGINS') ?: 'https://sgrhromas.netlify.app';
     header("Access-Control-Allow-Origin: $allowed_origin");
     header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN');

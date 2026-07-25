@@ -25,50 +25,26 @@
     </div>
   </div>
 </template>
-
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/store/auth'
 
 const router = useRouter()
-const email = ref('alfredsossa17@gmail.com')
-const password = ref('SGRHpro2026JONAO')
+const authStore = useAuthStore()
+const email = ref('')
+const password = ref('')
 const loading = ref(false)
 const error = ref('')
-const successMessage = ref('')
 
 async function handleLogin() {
   loading.value = true
   error.value = ''
-  successMessage.value = ''
-
   try {
-    const response = await fetch('https://sgrh-x7a8.onrender.com/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({
-        email: email.value,
-        password: password.value
-      })
-    })
-
-    if (!response.ok) {
-      const err = await response.json()
-      throw new Error(err.message || 'Erreur serveur')
-    }
-
-    const data = await response.json()
-    successMessage.value = 'Connexion réussie ! Token reçu : ' + data.token.substring(0, 20) + '...'
-    console.log('Réponse fetch :', data)
-
-    // Stocker le token (test)
-    localStorage.setItem('token', data.token)
-
-    // Rediriger (si tu veux tester la redirection, décommente)
-    // router.push('/admin')
+    await authStore.login({ email: email.value, password: password.value })
+    router.push('/admin') // ou route selon le rôle
   } catch (e) {
-    console.error('Erreur fetch:', e)
-    error.value = e.message
+    error.value = e.response?.data?.message || 'Erreur de connexion'
   } finally {
     loading.value = false
   }
