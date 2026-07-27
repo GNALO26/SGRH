@@ -12,8 +12,14 @@
 
       <div class="mb-6">
         <label class="block text-sm font-medium mb-2 dark:text-white">Changer la photo de profil</label>
-        <input type="file" @change="handleFile" accept="image/*" class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" />
-        <button @click="uploadAvatar" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Mettre à jour</button>
+        <input
+          type="file" @change="handleFile" accept="image/*"
+          :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', fieldErrors.avatar ? 'border-red-500' : '']"
+        />
+        <p v-if="fieldErrors.avatar" class="text-red-600 text-xs mt-1">{{ fieldErrors.avatar[0] }}</p>
+        <button @click="uploadAvatar" :disabled="uploading" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
+          {{ uploading ? 'Envoi...' : 'Mettre à jour' }}
+        </button>
       </div>
 
       <div class="space-y-3">
@@ -34,6 +40,8 @@ import Swal from 'sweetalert2'
 const auth = useAuthStore()
 const user = computed(() => auth.user)
 const avatarFile = ref(null)
+const uploading = ref(false)
+const fieldErrors = ref({})
 
 const avatar = computed(() =>
   auth.user?.avatar_url ||
@@ -49,17 +57,22 @@ async function uploadAvatar() {
     Swal.fire('Erreur', 'Veuillez sélectionner un fichier.', 'warning')
     return
   }
+  uploading.value = true
+  fieldErrors.value = {}
   try {
-    const form = new FormData()
-    form.append('avatar', avatarFile.value)
-    const { data } = await api.post('/user/avatar', form, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    const formData = new FormData()
+    formData.append('avatar', avatarFile.value)
+    const { data } = await api.post('/user/avatar', formData)
     auth.user.avatar_url = data.avatar_url
     Swal.fire('Succès', 'Photo mise à jour.', 'success')
     avatarFile.value = null
   } catch (e) {
+    if (e.response?.status === 422 && e.response.data?.fieldErrors) {
+      fieldErrors.value = e.response.data.fieldErrors
+    }
     Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
+  } finally {
+    uploading.value = false
   }
 }
 </script>
