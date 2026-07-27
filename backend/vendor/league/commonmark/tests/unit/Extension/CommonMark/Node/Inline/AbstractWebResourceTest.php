@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of the league/commonmark package.
+ *
+ * (c) Colin O'Dell <colinodell@gmail.com>
+ *
+ * Original code based on the CommonMark JS reference parser (https://bitly.com/commonmark-js)
+ *  - (c) John MacFarlane
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+namespace League\CommonMark\Tests\Unit\Extension\CommonMark\Node\Inline;
+
+use League\CommonMark\Extension\CommonMark\Node\Inline\AbstractWebResource;
+use PHPUnit\Framework\TestCase;
+
+final class AbstractWebResourceTest extends TestCase
+{
+    /**
+     * Tests the URL constructor parameter and getUrl() method
+     */
+    public function testConstructorAndGetUrl(): void
+    {
+        $url = 'https://www.example.com/foo';
+
+        $element = new class ($url) extends AbstractWebResource {
+        };
+
+        $this->assertEquals($url, $element->getUrl());
+    }
+
+    /**
+     * Tests the setUrl() method
+     */
+    public function testSetUrl(): void
+    {
+        $url1 = 'https://www.example.com/foo';
+        $url2 = 'https://www.example.com/bar';
+
+        $element = new class ($url1) extends AbstractWebResource {
+        };
+
+        $element->setUrl($url2);
+
+        $this->assertEquals($url2, $element->getUrl());
+    }
+}

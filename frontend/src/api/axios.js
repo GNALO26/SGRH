@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',   // ← le proxy Netlify se charge du reste
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Accept': 'application/json' },
 });
 
@@ -17,10 +17,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 422 && error.response.data?.errors) {
-      const errors = error.response.data.errors;
-      const firstField = Object.keys(errors)[0];
-      const message = Array.isArray(errors[firstField]) ? errors[firstField][0] : errors[firstField];
-      error.response.data.message = message;
+      error.response.data.fieldErrors = error.response.data.errors;
+      const firstField = Object.keys(error.response.data.errors)[0];
+      error.response.data.message = Array.isArray(error.response.data.errors[firstField])
+        ? error.response.data.errors[firstField][0]
+        : error.response.data.errors[firstField];
     }
     if (error.response?.status === 401) {
       localStorage.removeItem('token');

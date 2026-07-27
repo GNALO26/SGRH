@@ -39,12 +39,16 @@ class DocumentController extends Controller
             'uploaded_by' => auth()->id(),
         ]);
 
-        if ($doc->employee_id) {
-            $this->notificationService->createForUser(
-                $doc->employee,
-                "Nouveau document : {$doc->title}",
-                'fas fa-file-alt'
-            );
+        if ($doc->employee_id && $doc->employee) {
+            try {
+                $this->notificationService->createForUser(
+                    $doc->employee,
+                    "Nouveau document : {$doc->title}",
+                    'fas fa-file-alt'
+                );
+            } catch (\Exception $e) {
+                report($e);
+            }
         }
 
         return response()->json($doc, 201);

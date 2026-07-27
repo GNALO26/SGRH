@@ -5,15 +5,16 @@ namespace App\Http\Controllers\Employee;
 use App\Http\Controllers\Controller;
 use App\Models\UnjustifiedAbsence;
 use App\Services\CloudinaryService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
 class UnjustifiedAbsenceController extends Controller
 {
-    public function __construct(private CloudinaryService $cloudinaryService) {}
+    public function __construct(
+        private CloudinaryService $cloudinaryService,
+        private NotificationService $notificationService
+    ) {}
 
-    /**
-     * Liste les absences non justifiées de l'employé connecté.
-     */
     public function index()
     {
         $absences = request()->user()->unjustifiedAbsences()
@@ -24,23 +25,15 @@ class UnjustifiedAbsenceController extends Controller
         return response()->json($absences);
     }
 
-    /**
-     * Soumet l'explication et le justificatif pour une absence.
-     */
     public function explain(Request $request, UnjustifiedAbsence $absence)
     {
-        // Vérifier que l'absence appartient bien à l'employé connecté
-        if ($absence->user_id !== $request->user()->id) {
-            abort(403, 'Accès interdit');
-        }
-
-        // Vérifier qu'elle est encore en attente
+        if ($absence->user_id !== $request->user()->id) abort(403);
         if ($absence->status !== 'pending') {
             return response()->json(['message' => 'Cette absence a déjà été expliquée.'], 422);
         }
 
         $request->validate([
-            'explanation' => 'required|string|max:2000',
+            'explanation'  => 'required|string|max:2000',
             'justificatif' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
         ]);
 
@@ -50,19 +43,25 @@ class UnjustifiedAbsenceController extends Controller
             'explained_at' => now(),
         ];
 
-        // Upload du justificatif si présent
         if ($request->hasFile('justificatif')) {
-            $data['justificatif_url'] = $this->cloudinaryService->upload(
-                $request->file('justificatif'),
-                'absences'
-            );
+            $data['justificatif_url'] = $this->cloudinaryService->upload($request->file('justificatif'), 'absences');
         }
 
         $absence->update($data);
 
+        // Notification protégée pour les admins
+        try {
+            $this->notificationService->createForAdmins(
+                "{$request->user()->name} a justifié son absence du {$absence->from_date} au {$absence->to_date}.",
+                'fas fa-exclamation-triangle'
+            );
+        } catch (\Exception $e) {
+            report($e);
+        }
+
         return response()->json([
-            'message'  => 'Votre explication a bien été enregistrée.',
-            'absence'  => $absence->fresh(),
+            'message' => 'Votre explication a bien été enregistrée.',
+            'absence' => $absence->fresh(),
         ]);
     }
 }

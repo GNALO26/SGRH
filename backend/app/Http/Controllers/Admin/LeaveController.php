@@ -20,10 +20,7 @@ class LeaveController extends Controller
         $leaves = Leave::with('user')->latest()->get()->map(function ($leave) {
             return [
                 'id' => $leave->id,
-                'user' => $leave->user ? [
-                    'id' => $leave->user->id,
-                    'name' => $leave->user->name,
-                ] : null,
+                'user' => $leave->user ? ['id' => $leave->user->id, 'name' => $leave->user->name] : null,
                 'type' => $leave->type,
                 'start_date' => $leave->start_date,
                 'end_date' => $leave->end_date,
@@ -31,7 +28,6 @@ class LeaveController extends Controller
                 'status' => $leave->status,
             ];
         });
-
         return response()->json($leaves);
     }
 
@@ -49,16 +45,26 @@ class LeaveController extends Controller
         $employee = $leave->user;
         $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
 
-        $logMessage = "Congé {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$leave->start_date} - {$leave->end_date})";
-        $this->activityService->log($request->user(), "congé_{$request->status}", $logMessage, 'fas fa-calendar-check');
+        // Log protégé
+        try {
+            $logMessage = "Congé {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$leave->start_date} - {$leave->end_date})";
+            $this->activityService->log($request->user(), "congé_{$request->status}", $logMessage, 'fas fa-calendar-check');
+        } catch (\Exception $e) {
+            report($e);
+        }
 
+        // Notification protégée
         if ($employee) {
-            $this->notificationService->createForUser(
-                $employee,
-                "Votre congé du {$leave->start_date} au {$leave->end_date} a été {$statusText}.",
-                'fas fa-calendar-check',
-                now()->diffForHumans()
-            );
+            try {
+                $this->notificationService->createForUser(
+                    $employee,
+                    "Votre congé du {$leave->start_date} au {$leave->end_date} a été {$statusText}.",
+                    'fas fa-calendar-check',
+                    now()->diffForHumans()
+                );
+            } catch (\Exception $e) {
+                report($e);
+            }
         }
 
         return response()->json($leave->fresh('user'));

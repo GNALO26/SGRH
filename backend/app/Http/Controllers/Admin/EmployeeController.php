@@ -44,18 +44,24 @@ class EmployeeController extends Controller
 
         $employee = User::create($validated);
 
+        // Envoi d'email protégé
         try {
             Mail::to($employee->email)->send(new EmployeeCreatedMail($employee, $plainPassword));
         } catch (\Exception $e) {
             report($e);
         }
 
-        $this->activityService->log(
-            request()->user(),
-            'employé_créé',
-            "L'employé {$employee->name} a été créé.",
-            'fas fa-user-plus'
-        );
+        // Log d'activité protégé
+        try {
+            $this->activityService->log(
+                request()->user(),
+                'employé_créé',
+                "L'employé {$employee->name} a été créé.",
+                'fas fa-user-plus'
+            );
+        } catch (\Exception $e) {
+            report($e);
+        }
 
         return response()->json($employee, 201);
     }
@@ -98,12 +104,16 @@ class EmployeeController extends Controller
         if ($employee->role !== 'employee') abort(404);
         $employee->delete();
 
-        $this->activityService->log(
-            request()->user(),
-            'employé_supprimé',
-            "L'employé {$employee->name} a été supprimé.",
-            'fas fa-user-minus'
-        );
+        try {
+            $this->activityService->log(
+                request()->user(),
+                'employé_supprimé',
+                "L'employé {$employee->name} a été supprimé.",
+                'fas fa-user-minus'
+            );
+        } catch (\Exception $e) {
+            report($e);
+        }
 
         return response()->json(null, 204);
     }

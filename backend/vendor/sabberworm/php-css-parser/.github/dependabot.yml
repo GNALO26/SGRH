@@ -1,0 +1,29 @@
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+          interval: "daily"
+      commit-message:
+          prefix: "[Dependabot] "
+      milestone: 13
+
+    - package-ecosystem: "composer"
+      directory: "/"
+      schedule:
+          interval: "daily"
+      allow:
+          - dependency-type: "development"
+      ignore:
+        - dependency-name: "phpstan/*"
+        - dependency-name: "phpunit/phpunit"
+          versions: [ ">= 9.0.0" ]
+        - dependency-name: "rector/rector"
+        - dependency-name: "thecodingmachine/safe"
+        - dependency-name: "thecodingmachine/phpstan-safe-rule"
+      versioning-strategy: "increase"
+      commit-message:
+          prefix: "[Dependabot] "
+      milestone: 13

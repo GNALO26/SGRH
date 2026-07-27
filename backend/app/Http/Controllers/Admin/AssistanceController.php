@@ -11,24 +11,19 @@ class AssistanceController extends Controller
 {
     public function index()
     {
-        $requests = AssistanceRequest::with('user')->latest()->paginate(20);
-
-        $data = $requests->through(function ($req) {
-            return [
-                'id' => $req->id,
-                'subject' => $req->subject,
-                'description' => $req->description,
-                'status' => $req->status,
-                'admin_response' => $req->admin_response,
-                'created_at' => $req->created_at,
-                'user' => $req->user ? [
-                    'id' => $req->user->id,
-                    'name' => $req->user->name,
-                ] : null,
-            ];
-        });
-
-        return response()->json($data);
+        $requests = AssistanceRequest::with('user')->latest()->paginate(20)
+            ->through(function ($req) {
+                return [
+                    'id' => $req->id,
+                    'subject' => $req->subject,
+                    'description' => $req->description,
+                    'status' => $req->status,
+                    'admin_response' => $req->admin_response,
+                    'created_at' => $req->created_at,
+                    'user' => $req->user ? ['id' => $req->user->id, 'name' => $req->user->name] : null,
+                ];
+            });
+        return response()->json($requests);
     }
 
     public function respond(Request $request, AssistanceRequest $assistanceRequest)
@@ -42,7 +37,6 @@ class AssistanceController extends Controller
             'admin_response' => $request->admin_response,
             'status' => $request->status,
         ];
-
         if ($request->status === 'closed') {
             $data['resolved_at'] = now();
         }
@@ -50,11 +44,15 @@ class AssistanceController extends Controller
         $assistanceRequest->update($data);
 
         if ($assistanceRequest->user) {
-            app(NotificationService::class)->createForUser(
-                $assistanceRequest->user,
-                "Votre demande d'assistance a été mise à jour",
-                'fas fa-life-ring'
-            );
+            try {
+                app(NotificationService::class)->createForUser(
+                    $assistanceRequest->user,
+                    "Votre demande d'assistance a été mise à jour",
+                    'fas fa-life-ring'
+                );
+            } catch (\Exception $e) {
+                report($e);
+            }
         }
 
         return response()->json($assistanceRequest);
