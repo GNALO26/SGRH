@@ -1,0 +1,66 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - '*.x'
+  pull_request:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  linux_tests:
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: [8.1, 8.2, 8.3, 8.4, 8.5]
+        laravel: [10, 11, 12, 13]
+        exclude:
+          - php: 8.1
+            laravel: 11
+          - php: 8.1
+            laravel: 12
+          - php: 8.1
+            laravel: 13
+          - php: 8.2
+            laravel: 13
+          - php: 8.4
+            laravel: 10
+          - php: 8.5
+            laravel: 10
+          - php: 8.5
+            laravel: 11
+
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          ini-values: error_reporting=E_ALL
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Problem Matches
+        run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Install PHP dependencies
+        run: composer update --prefer-stable --no-interaction --no-progress --with="illuminate/support:^${{ matrix.laravel }}"
+
+      - name: Execute tests
+        run: vendor/bin/pest

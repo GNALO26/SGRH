@@ -2,24 +2,23 @@
 
 namespace App\Providers;
 
+use App\Services\GmailTransport;
+use Illuminate\Mail\MailManager;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Blade;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void
-    {
-        // Enregistrer le helper de statuts
-        $this->app->singleton('App\Helpers\StatusHelper', function () {
-            return new \App\Helpers\StatusHelper();
-        });
-    }
-
     public function boot(): void
     {
-        // Directive Blade pour traduire les statuts (utilisée éventuellement dans d'autres vues)
-        Blade::directive('statut', function ($expression) {
-            return "<?php echo app('App\Helpers\StatusHelper')->traduire($expression); ?>";
+        $this->app->resolving(MailManager::class, function (MailManager $mailManager) {
+            $mailManager->extend('gmail', function (array $config) {
+                return new GmailTransport(
+                    $config['user_email'],
+                    $config['client_id'],
+                    $config['client_secret'],
+                    $config['refresh_token']
+                );
+            });
         });
     }
 }
