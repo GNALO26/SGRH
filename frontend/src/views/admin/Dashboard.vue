@@ -5,7 +5,6 @@
       <p class="text-gray-500 dark:text-gray-400">{{ formattedDate }}</p>
     </div>
 
-    <!-- Statistiques du jour -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <StatsCard icon="fas fa-users" label="Total employés" :value="stats.total_employees" color="blue" />
       <StatsCard icon="fas fa-user-check" label="Présents" :value="stats.present_today + ' (' + presencePercent + '%)'" color="green" />
@@ -13,20 +12,14 @@
       <StatsCard icon="fas fa-calendar-times" label="Permissions/Absences" :value="stats.approved_leaves_today" color="red" />
     </div>
 
-    <!-- Graphique absentéisme -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
       <h2 class="text-lg font-semibold mb-4 dark:text-white">Taux d'absentéisme (30 derniers jours)</h2>
-      <div v-if="chartDataReady" style="height: 280px;">
+      <div style="height: 280px;">
         <canvas ref="absenceChart"></canvas>
-      </div>
-      <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
-        <i class="fas fa-chart-line text-3xl mb-2"></i>
-        <p>Données insuffisantes pour afficher le graphique.</p>
       </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Activités récentes -->
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
         <h2 class="text-lg font-semibold mb-4 dark:text-white">Activités récentes</h2>
         <div class="space-y-3 max-h-80 overflow-y-auto">
@@ -43,13 +36,11 @@
       </div>
 
       <div class="space-y-6">
-        <!-- Retards cumulés -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
           <h2 class="text-lg font-semibold mb-2 dark:text-white">Retards cumulés ce mois</h2>
           <p class="text-3xl font-bold text-orange-600">{{ stats.monthly_late_minutes }} <span class="text-lg font-normal text-gray-500">min</span></p>
           <p class="text-sm text-gray-500 mt-1">Par rapport au mois dernier <span class="text-red-500">+12%</span></p>
         </div>
-        <!-- Prochaines absences -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
           <h2 class="text-lg font-semibold mb-4 dark:text-white">Prochaines absences</h2>
           <div v-if="upcomingLeaves.length">
@@ -74,18 +65,10 @@ import StatsCard from '@/components/common/StatsCard.vue'
 import Chart from 'chart.js/auto'
 
 const formattedDate = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-const stats = ref({
-  total_employees: 0,
-  present_today: 0,
-  late_today: 0,
-  approved_leaves_today: 0,
-  monthly_late_minutes: 0,
-})
-
+const stats = ref({ total_employees: 0, present_today: 0, late_today: 0, approved_leaves_today: 0, monthly_late_minutes: 0 })
 const activities = ref([])
 const upcomingLeaves = ref([])
 const absenceChart = ref(null)
-const chartDataReady = ref(false)
 let chartInstance = null
 
 const presencePercent = computed(() => {
@@ -107,34 +90,17 @@ async function fetchDashboard() {
 }
 
 function renderChart(history) {
-  // Vérifier que les données sont présentes et valides
-  if (!history || history.length === 0) {
-    chartDataReady.value = false
-    return
-  }
-
-  if (!absenceChart.value) {
-    console.warn('Canvas non trouvé')
-    return
-  }
-
+  if (!history || history.length === 0) return
+  if (!absenceChart.value) return
   const ctx = absenceChart.value.getContext('2d')
   if (!ctx) return
 
-  // Détruire l'ancien graphique si nécessaire
-  if (chartInstance) {
-    chartInstance.destroy()
-    chartInstance = null
-  }
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null }
 
-  chartDataReady.value = true
-
-  // Adapter les couleurs selon le thème
   const isDark = document.documentElement.classList.contains('dark')
   const textColor = isDark ? '#cbd5e1' : '#1e293b'
   const gridColor = isDark ? 'rgba(148,163,184,0.15)' : 'rgba(0,0,0,0.06)'
 
-  // Créer un dégradé pour l'aire
   const gradient = ctx.createLinearGradient(0, 0, 0, 400)
   gradient.addColorStop(0, isDark ? 'rgba(59,130,246,0.4)' : 'rgba(37,99,235,0.25)')
   gradient.addColorStop(1, 'rgba(59,130,246,0)')
@@ -170,25 +136,12 @@ function renderChart(history) {
           bodyColor: textColor,
           borderColor: isDark ? '#334155' : '#e2e8f0',
           borderWidth: 1,
-          callbacks: {
-            label: (ctx) => `${ctx.parsed.y} %`
-          }
+          callbacks: { label: (ctx) => `${ctx.parsed.y} %` }
         }
       },
       scales: {
-        x: {
-          grid: { color: gridColor, drawBorder: false },
-          ticks: { color: textColor, maxTicksLimit: 7, font: { size: 10 } }
-        },
-        y: {
-          grid: { color: gridColor, drawBorder: false },
-          ticks: {
-            color: textColor,
-            callback: (value) => value + '%',
-            font: { size: 10 }
-          },
-          beginAtZero: true
-        }
+        x: { grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, maxTicksLimit: 7, font: { size: 10 } } },
+        y: { grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, callback: (value) => value + '%', font: { size: 10 } }, beginAtZero: true }
       }
     }
   })

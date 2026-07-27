@@ -23,7 +23,7 @@ class DashboardController extends Controller
             $today    = Carbon::today();
             $now      = Carbon::now();
 
-            // Lire les horaires de l'administrateur (défaut 08:00-20:00)
+            // Horaires configurés par l'admin
             $admin = User::where('role', 'admin')->first();
             if (!$admin) {
                 return response()->json(['message' => 'Aucun administrateur configuré.'], 500);
@@ -38,12 +38,12 @@ class DashboardController extends Controller
             $startWindow = (clone $openingTime)->subHour();
             $endWindow   = (clone $closingTime)->subHours(3);
 
-            // Si la fermeture est le lendemain (ex: 23:00 - 06:00)
-            if ($closingTime->lessThan($openingTime)) {
+            // Si fermeture < ouverture (ex: 23:00 - 06:00), on ajoute un jour
+            if ($closingTime->lt($openingTime)) {
                 $endWindow->addDay();
             }
 
-            $nowInWindow = $now->between($startWindow, $endWindow, true);
+            $nowInWindow = $now->between($startWindow, $endWindow);
 
             $todayAttendance = Attendance::where('user_id', $employee->id)
                 ->whereDate('date', $today)->first();

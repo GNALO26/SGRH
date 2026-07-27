@@ -17,7 +17,7 @@ class CompanySettingController extends Controller
             'company_longitude'      => $admin->company_longitude,
             'geofence_radius_meters' => $admin->geofence_radius_meters,
             'official_opening_time'  => $admin->official_opening_time,
-            'official_closing_time'  => $admin->official_closing_time,   // ← ajouté
+            'official_closing_time'  => $admin->official_closing_time,
         ]);
     }
 
@@ -28,7 +28,7 @@ class CompanySettingController extends Controller
             'company_longitude'      => 'required|numeric|between:-180,180',
             'geofence_radius_meters' => 'required|integer|min:1|max:5000',
             'official_opening_time'  => 'required|date_format:H:i',
-            'official_closing_time'  => 'required|date_format:H:i',   // ← ajouté
+            'official_closing_time'  => 'required|date_format:H:i',
         ]);
 
         if ($validator->fails()) {

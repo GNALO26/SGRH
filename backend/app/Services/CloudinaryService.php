@@ -14,20 +14,19 @@ class CloudinaryService
             throw new Exception('Cloudinary n\'est pas configuré. Ajoutez CLOUDINARY_URL dans les variables d\'environnement.');
         }
 
-        $result = Cloudinary::upload($file->getRealPath(), [
-            'folder' => $folder,
-            'secure'  => true,
-        ]);
+        try {
+            $result = Cloudinary::upload($file->getRealPath(), [
+                'folder' => $folder,
+                'secure'  => true,
+            ]);
+        } catch (\Exception $e) {
+            throw new Exception('Erreur Cloudinary : ' . $e->getMessage(), 0, $e);
+        }
 
         if (!$result || !method_exists($result, 'getSecurePath')) {
             throw new Exception('Réponse Cloudinary invalide.');
         }
 
-        $url = $result->getSecurePath();
-        if (!$url) {
-            throw new Exception('Impossible de récupérer l\'URL sécurisée.');
-        }
-
-        return $url;
+        return $result->getSecurePath();
     }
 }

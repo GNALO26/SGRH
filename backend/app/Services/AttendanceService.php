@@ -60,14 +60,19 @@ class AttendanceService
             ];
         }
 
-        // 4. Paramètres de l'entreprise
+        // 4. Paramètres de l'entreprise (admin)
         $admin = User::where('role', 'admin')->firstOrFail();
         $openingTime = Carbon::createFromTimeString($admin->official_opening_time);
         $closingTime = Carbon::createFromTimeString($admin->official_closing_time ?? '20:00');
 
-        // Fenêtre de pointage : 1h avant ouverture jusqu'à 3h avant fermeture
-        $startWindow = (clone $openingTime)->subHour();   // ex: 07:00 si ouverture à 08:00
-        $endWindow = (clone $closingTime)->subHours(3);   // ex: 15:00 si fermeture à 18:00
+        // Fenêtre de pointage : 1h avant ouverture → 3h avant fermeture
+        $startWindow = (clone $openingTime)->subHour();
+        $endWindow   = (clone $closingTime)->subHours(3);
+
+        // Cas où la fermeture est le lendemain (ex: 23:00 - 06:00)
+        if ($closingTime->lt($openingTime)) {
+            $endWindow->addDay();
+        }
 
         if ($now->lt($startWindow)) {
             return [
@@ -84,20 +89,18 @@ class AttendanceService
             ];
         }
 
-        // 5. Paliers horaires (basés sur l'heure d'ouverture)
-        $deadlineLate = (clone $openingTime)->addHour();   // 1h de retard standard
-
+        // 5. Paliers horaires
+        $deadlineLate = (clone $openingTime)->addHour();
         $status = '';
         $lateMinutes = 0;
         $isJustified = false;
 
         if ($now->lt($openingTime)) {
-            $status = 'on_time';   // avant l'heure d'ouverture
+            $status = 'on_time';
         } elseif ($now->gte($openingTime) && $now->lte($deadlineLate)) {
-            $status = 'late';      // retard standard
+            $status = 'late';
             $lateMinutes = (int) $openingTime->diffInMinutes($now);
         } else {
-            // Grand retard (après ouverture + 1h)
             $retardAuth = RetardAuthorization::where('user_id', $employee->id)
                 ->where('status', 'approved')
                 ->whereDate('date', $today)->first();
@@ -120,7 +123,6 @@ class AttendanceService
             }
         }
 
-        // Création du pointage
         $attendance = Attendance::create([
             'user_id'       => $employee->id,
             'date'          => $today,
