@@ -9,12 +9,14 @@ use Exception;
 class CloudinaryService
 {
     /**
-     * Téléverse un fichier sur Cloudinary et retourne l'URL sécurisée.
-     *
      * @throws Exception
      */
     public function upload(UploadedFile $file, string $folder = 'sirh'): string
     {
+        if (!config('cloudinary.cloud_url') && !env('CLOUDINARY_URL')) {
+            throw new Exception('Cloudinary n\'est pas configuré. Ajoutez CLOUDINARY_URL dans les variables d\'environnement.');
+        }
+
         $result = Cloudinary::upload($file->getRealPath(), [
             'folder' => $folder,
             'secure' => true,
