@@ -6,33 +6,48 @@ use App\Http\Controllers\Controller;
 use App\Models\AssistanceRequest;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class AssistanceController extends Controller
 {
     public function index()
     {
-        try {
-            $requests = AssistanceRequest::with('user')->latest()->paginate(20);
-            return response()->json($requests);
-        } catch (\Exception $e) {
-            Log::error('Erreur assistance index', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur interne. Vérifiez que la table assistance_requests existe.'], 500);
-        }
+        $requests = AssistanceRequest::with('user')->latest()->paginate(20);
+
+        $data = $requests->through(function ($req) {
+            return [
+                'id' => $req->id,
+                'subject' => $req->subject,
+                'description' => $req->description,
+                'status' => $req->status,
+                'admin_response' => $req->admin_response,
+                'created_at' => $req->created_at,
+                'user' => $req->user ? [
+                    'id' => $req->user->id,
+                    'name' => $req->user->name,
+                ] : null,
+            ];
+        });
+
+        return response()->json($data);
     }
 
     public function respond(Request $request, AssistanceRequest $assistanceRequest)
     {
         $request->validate([
             'admin_response' => 'nullable|string',
-            'status'         => 'required|in:open,in_progress,closed',
+            'status' => 'required|in:open,in_progress,closed',
         ]);
 
-        $assistanceRequest->update([
+        $data = [
             'admin_response' => $request->admin_response,
-            'status'         => $request->status,
-            'resolved_at'    => $request->status === 'closed' ? now() : null,
-        ]);
+            'status' => $request->status,
+        ];
+
+        if ($request->status === 'closed') {
+            $data['resolved_at'] = now();
+        }
+
+        $assistanceRequest->update($data);
 
         if ($assistanceRequest->user) {
             app(NotificationService::class)->createForUser(
@@ -42,6 +57,6 @@ class AssistanceController extends Controller
             );
         }
 
-        return response()->json($assistanceRequest->fresh('user'));
+        return response()->json($assistanceRequest);
     }
 }

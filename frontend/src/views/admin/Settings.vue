@@ -7,25 +7,18 @@
           <label class="block text-sm font-medium dark:text-white">Heure d'ouverture officielle</label>
           <input type="time" v-model="form.official_opening_time" required class="border rounded p-2 w-full dark:bg-gray-700 dark:text-white" />
         </div>
-
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-sm font-medium dark:text-white">Emplacement de l'entreprise</label>
-            <button
-              type="button"
-              @click="useMyPosition"
-              :disabled="locating"
-              class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 disabled:opacity-50"
-            >
+            <button type="button" @click="useMyPosition" :disabled="locating" class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 disabled:opacity-50">
               <i v-if="locating" class="fas fa-spinner fa-spin mr-1"></i>
               <i v-else class="fas fa-location-arrow mr-1"></i>
               {{ locating ? 'Localisation...' : 'Utiliser ma position' }}
             </button>
           </div>
-          <div ref="mapContainer" style="height: 300px; border-radius: 0.5rem; border: 1px solid #ddd;"></div>
+          <div id="map" style="height: 300px; border-radius: 0.5rem; border: 1px solid #ddd;"></div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Cliquez sur la carte ou utilisez le bouton pour définir les coordonnées.</p>
         </div>
-
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium dark:text-white">Latitude</label>
@@ -47,7 +40,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watchEffect } from 'vue'
+import { ref, onMounted } from 'vue'
 import api from '@/api/axios'
 import Swal from 'sweetalert2'
 import L from 'leaflet'
@@ -61,30 +54,45 @@ const form = ref({
 })
 
 const locating = ref(false)
-const mapContainer = ref(null)
 let map = null
 let marker = null
 
-async function initMap() {
-  if (!mapContainer.value) return
-  if (map) return // déjà initialisée
-
-  const lat = form.value.company_latitude || 6.3702
-  const lng = form.value.company_longitude || 2.3912
-
-  map = L.map(mapContainer.value).setView([lat, lng], 15)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(map)
-
-  if (form.value.company_latitude && form.value.company_longitude) {
-    marker = L.marker([lat, lng]).addTo(map)
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/admin/company-settings')
+    if (data) {
+      form.value = { ...form.value, ...data }
+    }
+  } catch (e) {
+    console.error('Erreur chargement paramètres', e)
   }
 
-  map.on('click', (e) => {
-    setPosition(e.latlng.lat, e.latlng.lng)
-  })
-}
+  // Attendre que le DOM soit stable
+  setTimeout(() => {
+    const el = document.getElementById('map')
+    if (!el) return
+
+    const lat = form.value.company_latitude || 6.3702
+    const lng = form.value.company_longitude || 2.3912
+
+    try {
+      map = L.map(el).setView([lat, lng], 15)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map)
+
+      if (form.value.company_latitude && form.value.company_longitude) {
+        marker = L.marker([lat, lng]).addTo(map)
+      }
+
+      map.on('click', (e) => {
+        setPosition(e.latlng.lat, e.latlng.lng)
+      })
+    } catch (err) {
+      console.error('Erreur initialisation carte', err)
+    }
+  }, 200)
+})
 
 function setPosition(lat, lng) {
   form.value.company_latitude = lat
@@ -94,7 +102,9 @@ function setPosition(lat, lng) {
   } else {
     marker = L.marker([lat, lng]).addTo(map)
   }
-  map.setView([lat, lng], map.getZoom())
+  if (map) {
+    map.setView([lat, lng], map.getZoom())
+  }
 }
 
 function useMyPosition() {
@@ -116,23 +126,6 @@ function useMyPosition() {
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   )
 }
-
-onMounted(async () => {
-  try {
-    const { data } = await api.get('/admin/company-settings')
-    if (data) {
-      form.value = { ...form.value, ...data }
-    }
-  } catch (e) {
-    console.error('Erreur chargement paramètres', e)
-  }
-
-  await nextTick()
-  // On laisse le DOM se stabiliser avant d'initialiser la carte
-  setTimeout(() => {
-    initMap()
-  }, 100)
-})
 
 async function saveSettings() {
   try {

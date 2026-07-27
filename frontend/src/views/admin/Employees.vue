@@ -37,7 +37,6 @@
       </table>
     </div>
 
-    <!-- Modal création/édition -->
     <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
         <h2 class="text-lg font-bold mb-4 dark:text-white">{{ editingEmployee ? 'Modifier' : 'Nouvel employé' }}</h2>
@@ -74,7 +73,10 @@
           </div>
           <div class="flex justify-end gap-2">
             <button type="button" @click="showModal = false" class="px-4 py-2 border rounded dark:text-white">Annuler</button>
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Enregistrer</button>
+            <button type="submit" :disabled="submitting" class="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2">
+              <i v-if="submitting" class="fas fa-spinner fa-spin"></i>
+              {{ submitting ? 'Enregistrement...' : 'Enregistrer' }}
+            </button>
           </div>
         </form>
       </div>
@@ -91,6 +93,7 @@ const employees = ref([])
 const showModal = ref(false)
 const editingEmployee = ref(null)
 const form = ref({ name: '', email: '', password: '', matricule: '', position: '', department: '', base_salary: '' })
+const submitting = ref(false)
 
 async function fetchEmployees() {
   const { data } = await api.get('/admin/employees')
@@ -110,6 +113,8 @@ function editEmployee(emp) {
 }
 
 async function saveEmployee() {
+  if (submitting.value) return
+  submitting.value = true
   try {
     if (editingEmployee.value) {
       await api.put(`/admin/employees/${editingEmployee.value.id}`, form.value)
@@ -129,6 +134,8 @@ async function saveEmployee() {
       errorMessage = e.response.data.message
     }
     Swal.fire('Erreur', errorMessage, 'error')
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -141,16 +148,26 @@ async function changePassword(emp) {
     inputValidator: (v) => !v ? 'Champ requis' : null
   })
   if (password) {
-    await api.patch(`/admin/employees/${emp.id}/password`, { password, password_confirmation: password })
-    Swal.fire('Succès', 'Mot de passe mis à jour', 'success')
+    try {
+      await api.patch(`/admin/employees/${emp.id}/password`, { password, password_confirmation: password })
+      Swal.fire('Succès', 'Mot de passe mis à jour', 'success')
+    } catch (e) {
+      Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
+    }
   }
 }
 
 async function deleteEmployee(id) {
   const confirm = await Swal.fire({ title: 'Confirmer la suppression ?', icon: 'warning', showCancelButton: true })
   if (confirm.isConfirmed) {
-    await api.delete(`/admin/employees/${id}`)
-    fetchEmployees()
+    try {
+      await api.delete(`/admin/employees/${id}`)
+      Swal.fire('Succès', 'Employé supprimé', 'success')
+      fetchEmployees()
+    } catch (e) {
+      const msg = e.response?.data?.message || e.message || 'Erreur lors de la suppression'
+      Swal.fire('Erreur', msg, 'error')
+    }
   }
 }
 

@@ -7,8 +7,6 @@ use App\Models\Leave;
 use App\Services\ActivityService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class LeaveController extends Controller
 {
@@ -19,64 +17,50 @@ class LeaveController extends Controller
 
     public function index()
     {
-        $leaves = Leave::with('user')->latest()->get();
+        $leaves = Leave::with('user')->latest()->get()->map(function ($leave) {
+            return [
+                'id' => $leave->id,
+                'user' => $leave->user ? [
+                    'id' => $leave->user->id,
+                    'name' => $leave->user->name,
+                ] : null,
+                'type' => $leave->type,
+                'start_date' => $leave->start_date,
+                'end_date' => $leave->end_date,
+                'reason' => $leave->reason,
+                'status' => $leave->status,
+            ];
+        });
+
         return response()->json($leaves);
     }
 
-    public function update(Request $request, $id) // <-- changement ici : on reçoit l'ID brut
+    public function update(Request $request, Leave $leave)
     {
-        $request->validate(['status' => 'required|in:approved,rejected']);
-
-        $leave = Leave::findOrFail($id); // <-- chargement manuel du modèle
-
-        Log::info('Tentative validation congé', [
-            'leave_id' => $leave->id,
-            'current_status' => $leave->status,
-            'request_status' => $request->status,
+        $request->validate([
+            'status' => 'required|in:approved,rejected',
         ]);
 
-        if ($leave->status !== 'pending') {
-            return response()->json(['message' => 'Cette demande a déjà été traitée.'], 409);
+        $leave->update([
+            'status'      => $request->status,
+            'approved_by' => $request->user()->id,
+        ]);
+
+        $employee = $leave->user;
+        $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
+
+        $logMessage = "Congé {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$leave->start_date} - {$leave->end_date})";
+        $this->activityService->log($request->user(), "congé_{$request->status}", $logMessage, 'fas fa-calendar-check');
+
+        if ($employee) {
+            $this->notificationService->createForUser(
+                $employee,
+                "Votre congé du {$leave->start_date} au {$leave->end_date} a été {$statusText}.",
+                'fas fa-calendar-check',
+                now()->diffForHumans()
+            );
         }
 
-        try {
-            DB::beginTransaction();
-
-            $leave->update([
-                'status'      => $request->status,
-                'approved_by' => $request->user()->id,
-            ]);
-
-            $employee = $leave->user;
-            $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
-
-            $start = optional($leave->start_date)->format('d/m/Y') ?? $leave->getRawOriginal('start_date');
-            $end   = optional($leave->end_date)->format('d/m/Y') ?? $leave->getRawOriginal('end_date');
-
-            $logMessage = "Congé {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$start} - {$end})";
-            $this->activityService->log($request->user(), "congé_{$request->status}", $logMessage, 'fas fa-calendar-check');
-
-            if ($employee) {
-                $this->notificationService->createForUser(
-                    $employee,
-                    "Votre congé du {$start} au {$end} a été {$statusText}.",
-                    'fas fa-calendar-check',
-                    now()->diffForHumans()
-                );
-            }
-
-            DB::commit();
-
-            return response()->json($leave->fresh('user'));
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Erreur validation congé', [
-                'leave_id' => $leave->id,
-                'error'    => $e->getMessage(),
-                'trace'    => $e->getTraceAsString(),
-            ]);
-            return response()->json(['message' => 'Erreur serveur. Voir les logs.'], 500);
-        }
+        return response()->json($leave->fresh('user'));
     }
 }
