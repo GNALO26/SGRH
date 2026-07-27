@@ -8,9 +8,9 @@ class GeoFencingService
 {
     public function isEmployeeAtOffice(User $employee, float $latitude, float $longitude): bool
     {
-        $admin = User::where('role', 'admin')->firstOrFail();
-        if (is_null($admin->company_latitude) || is_null($admin->company_longitude)) {
-            return false;
+        $admin = User::where('role', 'admin')->first();
+        if (!$admin || is_null($admin->company_latitude) || is_null($admin->company_longitude)) {
+            throw new \RuntimeException('La configuration de l\'entreprise (coordonnées GPS) n\'a pas encore été définie par l\'administrateur.');
         }
         return HaversineService::isWithinRadius(
             $latitude,
