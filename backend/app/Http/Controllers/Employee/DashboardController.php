@@ -23,17 +23,27 @@ class DashboardController extends Controller
             $today    = Carbon::today();
             $now      = Carbon::now();
 
-            // Récupération des paramètres de l'entreprise (admin)
+            // Lire les horaires de l'administrateur (défaut 08:00-20:00)
             $admin = User::where('role', 'admin')->first();
             if (!$admin) {
                 return response()->json(['message' => 'Aucun administrateur configuré.'], 500);
             }
-            $openingTime = Carbon::createFromTimeString($admin->official_opening_time ?? '08:00');
-            $closingTime = Carbon::createFromTimeString($admin->official_closing_time ?? '20:00');
 
-            // Fenêtre de pointage : 1 h avant ouverture → 3 h avant fermeture
+            $opening = $admin->official_opening_time ?? '08:00';
+            $closing = $admin->official_closing_time ?? '20:00';
+            $openingTime = Carbon::createFromTimeString($opening);
+            $closingTime = Carbon::createFromTimeString($closing);
+
+            // Fenêtre de pointage : 1h avant ouverture → 3h avant fermeture
             $startWindow = (clone $openingTime)->subHour();
             $endWindow   = (clone $closingTime)->subHours(3);
+
+            // Si la fermeture est le lendemain (ex: 23:00 - 06:00)
+            if ($closingTime->lessThan($openingTime)) {
+                $endWindow->addDay();
+            }
+
+            $nowInWindow = $now->between($startWindow, $endWindow, true);
 
             $todayAttendance = Attendance::where('user_id', $employee->id)
                 ->whereDate('date', $today)->first();
@@ -44,13 +54,9 @@ class DashboardController extends Controller
                 ->whereDate('end_date', '>=', $today)
                 ->exists();
 
-            $canCheckIn = !$todayAttendance && !$leaveToday;
-            // Respect de la fenêtre
-            if ($now->lt($startWindow) || $now->gt($endWindow)) {
-                $canCheckIn = false;
-            }
+            $canCheckIn = !$todayAttendance && !$leaveToday && $nowInWindow;
 
-            // Mois demandé (par défaut mois courant)
+            // Mois demandé (défaut mois courant)
             $month = (int) request('month', $today->month);
             $year  = (int) request('year', $today->year);
             $firstOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth();
@@ -83,7 +89,7 @@ class DashboardController extends Controller
 
             $pendingRequests = $pendingLeaves->concat($pendingRetards)->sortByDesc('created_at')->values();
 
-            // Derniers pointages
+            // Derniers pointages (5)
             $recentAttendances = Attendance::where('user_id', $employee->id)
                 ->orderByDesc('date')->take(5)->get()
                 ->map(function ($a) {
@@ -107,7 +113,7 @@ class DashboardController extends Controller
                     ];
                 });
 
-            // Résumé mensuel
+            // Résumé mensuel (mois sélectionné)
             $attendancesThisMonth = Attendance::where('user_id', $employee->id)
                 ->whereBetween('date', [$firstOfMonth, $endOfMonth])->get();
             $workedDays   = $attendancesThisMonth->count();
