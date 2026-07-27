@@ -1,3 +1,0 @@
-routes_from_php:
-    resource: validpattern.php
-    type: php
