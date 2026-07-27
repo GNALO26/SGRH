@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class CompanySettingController extends Controller
 {
-    public function show(Request $request)
+    public function show(Request $request): JsonResponse
     {
         $admin = $request->user();
         return response()->json([
@@ -16,30 +17,22 @@ class CompanySettingController extends Controller
             'company_longitude'      => $admin->company_longitude,
             'geofence_radius_meters' => $admin->geofence_radius_meters,
             'official_opening_time'  => $admin->official_opening_time,
+            'official_closing_time'  => $admin->official_closing_time,   // ← ajouté
         ]);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): JsonResponse
     {
-        // Remplacer les virgules par des points pour les nombres décimaux
-        $request->merge([
-            'company_latitude'  => str_replace(',', '.', $request->company_latitude),
-            'company_longitude' => str_replace(',', '.', $request->company_longitude),
-        ]);
-
         $validator = Validator::make($request->all(), [
             'company_latitude'       => 'required|numeric|between:-90,90',
             'company_longitude'      => 'required|numeric|between:-180,180',
             'geofence_radius_meters' => 'required|integer|min:1|max:5000',
             'official_opening_time'  => 'required|date_format:H:i',
-        ], [
-            'official_opening_time.date_format' => 'Le format de l\'heure d\'ouverture doit être HH:MM (ex : 08:00).',
-            'company_latitude.between'          => 'La latitude doit être comprise entre -90 et 90.',
-            'company_longitude.between'         => 'La longitude doit être comprise entre -180 et 180.',
+            'official_closing_time'  => 'required|date_format:H:i',   // ← ajouté
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => $validator->errors()->first()], 422);
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
         $admin = $request->user();

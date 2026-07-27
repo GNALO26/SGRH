@@ -20,6 +20,7 @@ class User extends Authenticatable
         'company_longitude',
         'geofence_radius_meters',
         'official_opening_time',
+        'official_closing_time',   // ← ajouté
         'base_salary',
         'matricule',
         'position',
@@ -49,7 +50,6 @@ class User extends Authenticatable
     public function unjustifiedAbsences(): HasMany { return $this->hasMany(UnjustifiedAbsence::class); }
     public function assistanceRequests(): HasMany { return $this->hasMany(AssistanceRequest::class); }
 
-    
     public function getCompanyLatAttribute(): ?float { return $this->company_latitude; }
     public function getCompanyLngAttribute(): ?float { return $this->company_longitude; }
 }
