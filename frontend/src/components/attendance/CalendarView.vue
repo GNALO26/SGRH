@@ -44,7 +44,7 @@ const calendarDays = computed(() => {
     const dateStr = `${props.year}-${String(props.month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
     const event = props.events.find(e => e.date === dateStr)
     let dotColor = ''
-    let classNames = 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-default'
+    let classNames = 'hover:bg-gray-100 cursor-default'
     if (event) {
       switch (event.status) {
         case 'present':

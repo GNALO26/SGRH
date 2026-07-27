@@ -14,9 +14,9 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  icon: { type: String, default: 'fas fa-circle' },
-  label: { type: String, required: true },
-  value: { type: [String, Number], default: '' },
+  icon: String,
+  label: String,
+  value: [String, Number],
   color: { type: String, default: 'blue' }
 })
 
