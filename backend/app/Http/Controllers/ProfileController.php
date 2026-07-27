@@ -10,7 +10,6 @@ class ProfileController extends Controller
 {
     public function updateAvatar(Request $request)
     {
-        // Validation de base
         $request->validate([
             'avatar' => 'required|image|mimes:jpg,jpeg,png',
         ]);
@@ -23,17 +22,11 @@ class ProfileController extends Controller
         try {
             $url = app(CloudinaryService::class)->upload($file, 'avatars');
         } catch (\Exception $e) {
-            Log::error('Erreur upload avatar', [
-                'error' => $e->getMessage(),
-                'file' => $file->getClientOriginalName(),
-            ]);
-            return response()->json([
-                'message' => 'Erreur lors de l\'upload : ' . $e->getMessage()
-            ], 500);
+            Log::error('Upload avatar', ['error' => $e->getMessage()]);
+            return response()->json(['message' => $e->getMessage()], 500);
         }
 
         $request->user()->update(['avatar_url' => $url]);
-
         return response()->json(['avatar_url' => $url]);
     }
 }
