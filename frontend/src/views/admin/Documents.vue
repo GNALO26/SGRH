@@ -25,7 +25,7 @@
             <td class="p-3 dark:text-white">{{ doc.employee?.name || 'Tous' }}</td>
             <td class="p-3 dark:text-white">{{ new Date(doc.created_at).toLocaleDateString() }}</td>
             <td class="p-3 space-x-2">
-              <a :href="doc.file_url" target="_blank" class="text-blue-600 hover:underline">Voir</a>
+              <button @click="viewDocument(doc)" class="text-blue-600 hover:underline">Voir</button>
               <button @click="deleteDoc(doc.id)" class="text-red-600 hover:underline">Supprimer</button>
             </td>
           </tr>
@@ -76,6 +76,9 @@
         </form>
       </div>
     </div>
+
+    <!-- Visualiseur de document -->
+    <DocumentViewer :visible="viewerVisible" :url="viewerUrl" :title="viewerTitle" @close="viewerVisible = false" />
   </div>
 </template>
 
@@ -83,6 +86,7 @@
 import { ref, onMounted } from 'vue'
 import api from '@/api/axios'
 import Swal from 'sweetalert2'
+import DocumentViewer from '@/components/common/DocumentViewer.vue'
 
 const documents = ref([])
 const employees = ref([])
@@ -91,13 +95,36 @@ const submitting = ref(false)
 const form = ref({ title: '', type: 'contract', employee_id: null, file: null })
 const fieldErrors = ref({})
 
-async function fetchDocuments() { const { data } = await api.get('/admin/documents'); documents.value = data }
-async function fetchEmployees() { const { data } = await api.get('/admin/employees'); employees.value = data }
+// Visualiseur
+const viewerVisible = ref(false)
+const viewerUrl = ref('')
+const viewerTitle = ref('')
 
-function handleFile(e) { form.value.file = e.target.files[0] }
+function viewDocument(doc) {
+  viewerUrl.value = doc.file_url
+  viewerTitle.value = doc.title
+  viewerVisible.value = true
+}
+
+async function fetchDocuments() {
+  const { data } = await api.get('/admin/documents')
+  documents.value = data
+}
+
+async function fetchEmployees() {
+  const { data } = await api.get('/admin/employees')
+  employees.value = data
+}
+
+function handleFile(e) {
+  form.value.file = e.target.files[0]
+}
 
 async function upload() {
-  if (!form.value.file) { Swal.fire('Erreur', 'Veuillez sélectionner un fichier.', 'warning'); return }
+  if (!form.value.file) {
+    Swal.fire('Erreur', 'Veuillez sélectionner un fichier.', 'warning')
+    return
+  }
   submitting.value = true
   fieldErrors.value = {}
   try {
@@ -106,25 +133,37 @@ async function upload() {
     payload.append('file', form.value.file)
     payload.append('type', form.value.type)
     if (form.value.employee_id) payload.append('employee_id', form.value.employee_id)
+
     await api.post('/admin/documents', payload)
     Swal.fire('Succès', 'Document ajouté', 'success')
     showForm.value = false
     form.value = { title: '', type: 'contract', employee_id: null, file: null }
     fetchDocuments()
   } catch (e) {
-    if (e.response?.status === 422 && e.response.data?.fieldErrors) fieldErrors.value = e.response.data.fieldErrors
+    if (e.response?.status === 422 && e.response.data?.fieldErrors) {
+      fieldErrors.value = e.response.data.fieldErrors
+    }
     Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
-  } finally { submitting.value = false }
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function deleteDoc(id) {
   const confirm = await Swal.fire({ title: 'Supprimer ce document ?', showCancelButton: true })
   if (confirm.isConfirmed) {
-    await api.delete(`/admin/documents/${id}`)
-    Swal.fire('Supprimé', '', 'success')
-    fetchDocuments()
+    try {
+      await api.delete(`/admin/documents/${id}`)
+      Swal.fire('Supprimé', '', 'success')
+      fetchDocuments()
+    } catch (e) {
+      Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
+    }
   }
 }
 
-onMounted(() => { fetchDocuments(); fetchEmployees() })
+onMounted(() => {
+  fetchDocuments()
+  fetchEmployees()
+})
 </script>
