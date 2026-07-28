@@ -59,13 +59,13 @@
           </div>
         </div>
 
-        <!-- Colonne centrale -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col min-h-[500px]">
+        <!-- Colonne centrale : calendrier + citation -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col">
           <h2 class="text-lg font-semibold mb-4 dark:text-white"><i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier {{ currentMonth }}</h2>
           <CalendarView :year="currentYear" :month="currentMonthNum" :events="calendarEvents" />
-          <!-- Espaceur flexible pour pousser la citation vers le bas -->
-          <div class="flex-1"></div>
-          <div class="space-y-3">
+
+          <!-- Bloc citation / jours fériés remonté avec une marge fixe -->
+          <div class="mt-6 space-y-3">
             <DailyQuote />
             <div v-if="upcomingHolidays.length" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 text-sm">
               <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
@@ -167,23 +167,23 @@ const error = ref(false)
 
 const formattedDate = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-// Nouvelle fonction pour les pastilles des derniers pointages (avec mode sombre)
+// Pastilles des derniers pointages avec mode sombre
 function pointageStatusClass(status) {
   switch (status) {
     case 'on_time':
-      return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300';
+      return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
     case 'late':
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300';
+      return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
     case 'major_late':
-      return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
+      return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
     case 'authorized':
-      return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
     default:
-      return 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300';
+      return 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
   }
 }
 
-// Statut du jour amélioré pour le mode sombre
+// Statut du jour
 const statusClass = computed(() => {
   if (!todayAttendance.value) return 'bg-gray-400 dark:bg-gray-600'
   switch (todayAttendance.value.status) {
