@@ -36,7 +36,10 @@ class CloudinaryService
     {
         try {
             $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
-                'folder' => $folder,
+                'folder'          => $folder,
+                'resource_type'   => 'auto',
+                'use_filename'    => true,
+                'unique_filename' => true,
             ]);
         } catch (\Exception $e) {
             throw new Exception('Erreur Cloudinary : ' . $e->getMessage(), 0, $e);
