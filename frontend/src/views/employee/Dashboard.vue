@@ -59,9 +59,9 @@
           </div>
         </div>
 
-        <!-- Colonne centrale : calendrier + citation (avec hauteur pleine et push en bas) -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col h-full">
-          <!-- En-tête du calendrier avec navigation -->
+        <!-- Colonne centrale : calendrier + citation (pas de flex forcing) -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <!-- En-tête calendrier avec navigation -->
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold dark:text-white">
               <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier
@@ -87,13 +87,11 @@
             </div>
           </div>
 
-          <!-- Calendrier avec flex-1 pour occuper l'espace -->
-          <div class="flex-1">
-            <CalendarView :year="displayedYear" :month="displayedMonth" :events="calendarEvents" />
-          </div>
+          <!-- Calendrier (taille naturelle) -->
+          <CalendarView :year="displayedYear" :month="displayedMonth" :events="calendarEvents" />
 
-          <!-- Bloc citation / jours fériés poussé en bas avec mt-auto -->
-          <div class="mt-auto pt-4 space-y-3">
+          <!-- Citation et jours fériés : remontés avec un simple margin-top -->
+          <div class="mt-4 space-y-3">
             <DailyQuote />
             <div v-if="upcomingHolidays.length" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 text-sm">
               <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
@@ -251,7 +249,6 @@ async function fetchDashboard() {
     pendingRequests.value = data.pending_requests || []
     recentAttendances.value = data.recent_attendances || []
     monthlySummary.value = data.monthly_summary
-    // On ne touche pas aux événements du calendrier ici, ils sont gérés par fetchCalendarEvents
   } catch (e) {
     console.error('Erreur chargement dashboard', e)
     throw e
@@ -277,17 +274,15 @@ async function changeMonth(delta) {
   const newDate = new Date(displayedDate.value)
   newDate.setMonth(newDate.getMonth() + delta)
   displayedDate.value = newDate
-  // Recharger les événements pour le nouveau mois
   await fetchCalendarEvents(displayedMonth.value, displayedYear.value)
 }
 
-// Rafraîchissement global (après pointage, etc.)
+// Rafraîchissement global
 async function refreshData() {
   loading.value = true
   error.value = false
   try {
     await fetchDashboard()
-    // Recharger aussi les événements du mois en cours
     await fetchCalendarEvents(displayedMonth.value, displayedYear.value)
   } catch (e) {
     error.value = true
