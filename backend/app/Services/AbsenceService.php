@@ -13,126 +13,90 @@ use Illuminate\Support\Facades\Log;
 
 class AbsenceService
 {
-    /**
-     * Détecte les absences non justifiées depuis la dernière connexion de l'employé
-     * et crée des entrées dans unjustified_absences si nécessaire.
-     *
-     * @param User $user L'employé concerné
-     * @return bool True si au moins une absence a été créée
-     */
     public function detectAndCreateAbsences(User $user): bool
     {
         if ($user->role !== 'employee') {
             return false;
         }
 
-        // Date de début : dernière connexion ou création du compte
-        $lastLogin = $user->last_login_at 
-            ? Carbon::parse($user->last_login_at)->startOfDay() 
-            : Carbon::parse($user->created_at)->startOfDay();
+        try {
+            $lastLogin = $user->last_login_at
+                ? Carbon::parse($user->last_login_at)->startOfDay()
+                : Carbon::parse($user->created_at)->startOfDay();
 
-        // Date de fin : hier (on ne compte pas aujourd'hui)
-        $endDate = Carbon::yesterday()->endOfDay();
+            $endDate = Carbon::yesterday()->endOfDay();
 
-        // Si la dernière connexion est aujourd'hui ou après, rien à faire
-        if ($lastLogin->greaterThanOrEqualTo(Carbon::today())) {
-            Log::info("AbsenceService : Aucune absence à détecter pour {$user->name} (dernière connexion aujourd'hui)");
-            return false;
-        }
-
-        Log::info("AbsenceService : Détection pour {$user->name} du {$lastLogin->toDateString()} au {$endDate->toDateString()}");
-
-        // Collecter les jours ouvrés manquants
-        $missingDays = [];
-        $period = CarbonPeriod::create($lastLogin, $endDate);
-
-        foreach ($period as $date) {
-            // Ignorer les week-ends
-            if ($date->isWeekend()) {
-                continue;
+            if ($lastLogin->greaterThanOrEqualTo(Carbon::today())) {
+                Log::info("AbsenceService : {$user->name} – dernière connexion aujourd'hui.");
+                return false;
             }
 
-            // Ignorer les jours fériés
-            if (Holiday::whereDate('date', $date)->exists()) {
-                continue;
+            $missingDays = [];
+            $period = CarbonPeriod::create($lastLogin, $endDate);
+
+            foreach ($period as $date) {
+                if ($date->isWeekend()) continue;
+                if (Holiday::whereDate('date', $date)->exists()) continue;
+                if (Attendance::where('user_id', $user->id)->whereDate('date', $date)->exists()) continue;
+                if (Leave::where('user_id', $user->id)->where('status', 'approved')
+                    ->whereDate('start_date', '<=', $date)->whereDate('end_date', '>=', $date)->exists()) continue;
+
+                $missingDays[] = $date->toDateString();
             }
 
-            // Ignorer si un pointage existe
-            if (Attendance::where('user_id', $user->id)->whereDate('date', $date)->exists()) {
-                continue;
+            if (empty($missingDays)) {
+                Log::info("AbsenceService : Aucun jour manquant pour {$user->name}.");
+                return false;
             }
 
-            // Ignorer si un congé approuvé couvre cette date
-            if (Leave::where('user_id', $user->id)
-                ->where('status', 'approved')
-                ->whereDate('start_date', '<=', $date)
-                ->whereDate('end_date', '>=', $date)
-                ->exists()) {
-                continue;
+            $ranges = $this->groupConsecutiveDates($missingDays);
+            $created = false;
+
+            foreach ($ranges as $range) {
+                $fromDate = Carbon::parse($range[0]);
+                $toDate   = Carbon::parse(end($range));
+
+                $exists = UnjustifiedAbsence::where('user_id', $user->id)
+                    ->where('from_date', $fromDate)
+                    ->where('to_date', $toDate)
+                    ->exists();
+
+                if ($exists) continue;
+
+                UnjustifiedAbsence::create([
+                    'user_id'   => $user->id,
+                    'from_date' => $fromDate,
+                    'to_date'   => $toDate,
+                    'status'    => 'pending',
+                ]);
+                Log::info("AbsenceService : Absence créée {$fromDate->toDateString()} → {$toDate->toDateString()}");
+                $created = true;
             }
 
-            $missingDays[] = $date->toDateString();
-        }
-
-        if (empty($missingDays)) {
-            Log::info("AbsenceService : Aucun jour manquant pour {$user->name}");
-            return false;
-        }
-
-        // Regrouper en plages continues
-        $ranges = $this->groupConsecutiveDates($missingDays);
-        $created = false;
-
-        foreach ($ranges as $range) {
-            $fromDate = Carbon::parse($range[0]);
-            $toDate   = Carbon::parse(end($range));
-
-            // Éviter les doublons sur la même plage
-            $exists = UnjustifiedAbsence::where('user_id', $user->id)
-                ->where('from_date', $fromDate)
-                ->where('to_date', $toDate)
-                ->exists();
-
-            if ($exists) {
-                Log::info("AbsenceService : Plage déjà existante pour {$user->name} : {$fromDate->toDateString()} - {$toDate->toDateString()}");
-                continue;
+            if ($created) {
+                $admins = User::where('role', 'admin')->get();
+                foreach ($admins as $admin) {
+                    app(NotificationService::class)->createForUser(
+                        $admin,
+                        "Nouvelle absence non justifiée pour {$user->name}",
+                        'fas fa-exclamation-triangle'
+                    );
+                }
             }
 
-            UnjustifiedAbsence::create([
-                'user_id'   => $user->id,
-                'from_date' => $fromDate,
-                'to_date'   => $toDate,
-                'status'    => 'pending',
+            return $created;
+        } catch (\Exception $e) {
+            Log::error('AbsenceService : erreur', [
+                'user'    => $user->id,
+                'message' => $e->getMessage(),
             ]);
-
-            Log::info("AbsenceService : Absence créée pour {$user->name} : {$fromDate->toDateString()} - {$toDate->toDateString()}");
-            $created = true;
+            return false; // Ne jamais bloquer la connexion
         }
-
-        // Notification aux admins
-        if ($created) {
-            $admins = User::where('role', 'admin')->get();
-            foreach ($admins as $admin) {
-                app(NotificationService::class)->createForUser(
-                    $admin,
-                    "Nouvelle absence non justifiée pour {$user->name}",
-                    'fas fa-exclamation-triangle'
-                );
-            }
-        }
-
-        return $created;
     }
 
-    /**
-     * Regroupe une liste de dates consécutives en plages.
-     */
     private function groupConsecutiveDates(array $dates): array
     {
-        if (empty($dates)) {
-            return [];
-        }
-
+        if (empty($dates)) return [];
         sort($dates);
         $ranges = [];
         $current = [$dates[0]];
@@ -149,7 +113,6 @@ class AbsenceService
             $prev = $date;
         }
         $ranges[] = $current;
-
         return $ranges;
     }
 }
