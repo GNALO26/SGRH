@@ -20,31 +20,37 @@ class DashboardController extends Controller
     {
         try {
             $employee = request()->user();
-            $today    = Carbon::today();
-            $now      = Carbon::now();
+            if (!$employee) {
+                return response()->json(['message' => 'Utilisateur non authentifié.'], 401);
+            }
 
-            // Paramètres admin dynamiques
+            $today = Carbon::today();
+            $now   = Carbon::now();
+
+            // --- Paramètres admin ---
             $admin = User::where('role', 'admin')->first();
             if (!$admin) {
+                Log::warning('Dashboard employé : aucun admin trouvé');
                 return response()->json(['message' => 'Aucun administrateur configuré.'], 500);
             }
 
             $openingTime = Carbon::createFromTimeString($admin->official_opening_time ?? '08:00');
             $closingTime = Carbon::createFromTimeString($admin->official_closing_time ?? '20:00');
 
-            // Fenêtre de pointage : 1h avant ouverture → 3h avant fermeture
+            // Fenêtre de pointage
             $startWindow = (clone $openingTime)->subHour();
             $endWindow   = (clone $closingTime)->subHours(3);
 
-            // Shift de nuit (ex: 23:00 - 06:00)
             if ($closingTime->lessThan($openingTime)) {
                 $endWindow->addDay();
             }
 
             $nowInWindow = $now->between($startWindow, $endWindow);
 
+            // --- Pointage du jour ---
             $todayAttendance = Attendance::where('user_id', $employee->id)
-                ->whereDate('date', $today)->first();
+                ->whereDate('date', $today)
+                ->first();
 
             $leaveToday = Leave::where('user_id', $employee->id)
                 ->where('status', 'approved')
@@ -54,20 +60,22 @@ class DashboardController extends Controller
 
             $canCheckIn = !$todayAttendance && !$leaveToday && $nowInWindow;
 
-            // Mois demandé (défaut courant)
+            // --- Mois demandé ---
             $month = (int) request('month', $today->month);
             $year  = (int) request('year', $today->year);
             $firstOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth();
             $endOfMonth   = $firstOfMonth->copy()->endOfMonth();
 
-            // Demandes en attente
+            // --- Demandes en attente ---
             $pendingLeaves = Leave::where('user_id', $employee->id)
                 ->where('status', 'pending')
-                ->orderByDesc('created_at')->take(5)->get()
+                ->orderByDesc('created_at')
+                ->take(5)
+                ->get()
                 ->map(fn($l) => [
                     'id'          => $l->id,
                     'type'        => 'leave',
-                    'date'        => $l->start_date . ' - ' . $l->end_date,
+                    'date'        => ($l->start_date ?? '') . ' - ' . ($l->end_date ?? ''),
                     'reason'      => $l->reason,
                     'statusClass' => 'bg-yellow-100 text-yellow-800',
                     'statusLabel' => 'En attente',
@@ -75,11 +83,13 @@ class DashboardController extends Controller
 
             $pendingRetards = RetardAuthorization::where('user_id', $employee->id)
                 ->where('status', 'pending')
-                ->orderByDesc('created_at')->take(5)->get()
+                ->orderByDesc('created_at')
+                ->take(5)
+                ->get()
                 ->map(fn($r) => [
                     'id'          => $r->id,
                     'type'        => 'retard',
-                    'date'        => $r->date . ' à ' . $r->expected_arrival,
+                    'date'        => ($r->date ?? '') . ' à ' . ($r->expected_arrival ?? ''),
                     'reason'      => $r->reason,
                     'statusClass' => 'bg-yellow-100 text-yellow-800',
                     'statusLabel' => 'En attente',
@@ -87,9 +97,11 @@ class DashboardController extends Controller
 
             $pendingRequests = $pendingLeaves->concat($pendingRetards)->sortByDesc('created_at')->values();
 
-            // Derniers pointages (5)
+            // --- Derniers pointages (5) ---
             $recentAttendances = Attendance::where('user_id', $employee->id)
-                ->orderByDesc('date')->take(5)->get()
+                ->orderByDesc('date')
+                ->take(5)
+                ->get()
                 ->map(function ($a) {
                     switch ($a->status) {
                         case 'on_time':    $cls = 'bg-green-100 text-green-800'; $lbl = 'À l\'heure'; break;
@@ -111,9 +123,11 @@ class DashboardController extends Controller
                     ];
                 });
 
-            // Résumé mensuel (mois sélectionné)
+            // --- Résumé mensuel ---
             $attendancesThisMonth = Attendance::where('user_id', $employee->id)
-                ->whereBetween('date', [$firstOfMonth, $endOfMonth])->get();
+                ->whereBetween('date', [$firstOfMonth, $endOfMonth])
+                ->get();
+
             $workedDays   = $attendancesThisMonth->count();
             $presentDays  = $attendancesThisMonth->whereIn('status', ['on_time','late','major_late','authorized'])->count();
             $lateCount    = $attendancesThisMonth->whereIn('status', ['late','major_late'])->count();
@@ -121,20 +135,23 @@ class DashboardController extends Controller
             $absenceDays  = Leave::where('user_id', $employee->id)
                 ->where('status', 'approved')
                 ->where('type', 'absence')
-                ->whereBetween('start_date', [$firstOfMonth, $endOfMonth])->count();
+                ->whereBetween('start_date', [$firstOfMonth, $endOfMonth])
+                ->count();
 
-            // Événements calendrier
+            // --- Événements calendrier ---
             $calendarEvents = [];
             foreach ($attendancesThisMonth as $att) {
                 $status = in_array($att->status, ['late','major_late']) ? 'late' : 'present';
                 $calendarEvents[] = ['date' => $att->date, 'status' => $status];
             }
+
             $leavesThisMonth = Leave::where('user_id', $employee->id)
                 ->where('status', 'approved')
                 ->where(function ($q) use ($firstOfMonth, $endOfMonth) {
                     $q->whereBetween('start_date', [$firstOfMonth, $endOfMonth])
                       ->orWhereBetween('end_date', [$firstOfMonth, $endOfMonth]);
                 })->get();
+
             foreach ($leavesThisMonth as $leave) {
                 $start = max($leave->start_date, $firstOfMonth);
                 $end   = min($leave->end_date, $endOfMonth);
@@ -143,18 +160,29 @@ class DashboardController extends Controller
                     foreach ($period as $date) {
                         $calendarEvents[] = ['date' => $date->toDateString(), 'status' => 'leave'];
                     }
-                } catch (\Exception $e) {}
+                } catch (\Exception $e) {
+                    Log::error('Erreur période calendrier', ['msg' => $e->getMessage()]);
+                }
             }
+
             $holidaysMonth = Holiday::whereBetween('date', [$firstOfMonth, $endOfMonth])->get();
             foreach ($holidaysMonth as $holiday) {
                 $calendarEvents[] = ['date' => $holiday->date->toDateString(), 'status' => 'holiday'];
             }
 
             $hasPendingAbsences = UnjustifiedAbsence::where('user_id', $employee->id)
-                ->where('status', 'pending')->exists();
+                ->where('status', 'pending')
+                ->exists();
 
-            $upcomingHolidays = Holiday::where('date', '>=', $today)->orderBy('date')->take(5)->get()
-                ->map(fn($h) => ['id' => $h->id, 'date' => $h->date->toDateString(), 'description' => $h->description]);
+            $upcomingHolidays = Holiday::where('date', '>=', $today)
+                ->orderBy('date')
+                ->take(5)
+                ->get()
+                ->map(fn($h) => [
+                    'id'          => $h->id,
+                    'date'        => $h->date->toDateString(),
+                    'description' => $h->description,
+                ]);
 
             return response()->json([
                 'today_attendance'   => $todayAttendance,
@@ -175,10 +203,14 @@ class DashboardController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Dashboard employé - erreur', [
-                'user'    => request()->user()?->id,
+                'user_id' => request()->user()?->id,
                 'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
             ]);
-            return response()->json(['message' => 'Erreur interne du serveur.'], 500);
+            return response()->json([
+                'message' => 'Erreur interne du serveur.',
+                'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
     }
 }
