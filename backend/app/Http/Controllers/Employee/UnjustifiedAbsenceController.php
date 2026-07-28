@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\UnjustifiedAbsence;
 use App\Services\CloudinaryService;
 use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class UnjustifiedAbsenceController extends Controller
@@ -15,7 +16,10 @@ class UnjustifiedAbsenceController extends Controller
         private NotificationService $notificationService
     ) {}
 
-    public function index()
+    /**
+     * Liste les absences non justifiées de l'employé connecté.
+     */
+    public function index(): JsonResponse
     {
         $absences = request()->user()->unjustifiedAbsences()
             ->when(request('status'), fn($q) => $q->where('status', request('status')))
@@ -25,9 +29,15 @@ class UnjustifiedAbsenceController extends Controller
         return response()->json($absences);
     }
 
-    public function explain(Request $request, UnjustifiedAbsence $absence)
+    /**
+     * Soumet l'explication et le justificatif pour une absence.
+     */
+    public function explain(Request $request, UnjustifiedAbsence $absence): JsonResponse
     {
-        if ($absence->user_id !== $request->user()->id) abort(403);
+        if ($absence->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Accès interdit.'], 403);
+        }
+
         if ($absence->status !== 'pending') {
             return response()->json(['message' => 'Cette absence a déjà été expliquée.'], 422);
         }
@@ -49,7 +59,7 @@ class UnjustifiedAbsenceController extends Controller
 
         $absence->update($data);
 
-        // Notification protégée pour les admins
+        // Notifier les admins
         try {
             $this->notificationService->createForAdmins(
                 "{$request->user()->name} a justifié son absence du {$absence->from_date} au {$absence->to_date}.",
