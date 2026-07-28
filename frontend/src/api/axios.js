@@ -1,14 +1,19 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // Utiliser l'URL complète de Render si la variable d'environnement n'est pas définie
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://sgrh-x7a8.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Accept': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Anti-cache : force chaque GET à être traité comme une requête neuve
+  if (config.method === 'get') {
+    config.params = { ...config.params, _ts: Date.now() };
+  }
   return config;
 }, (error) => Promise.reject(error));
 
@@ -25,13 +30,6 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
-    }
-    if (error.response?.status === 403) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }
     }
     return Promise.reject(error);
   }
