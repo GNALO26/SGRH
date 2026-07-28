@@ -12,9 +12,11 @@
         <i :class="isDark ? 'fas fa-sun' : 'fas fa-moon'"></i>
       </button>
 
-      <div v-if="role === 'employee'" class="relative cursor-pointer" @click="goToNotifications">
+      <!-- Cloche pour les deux rôles -->
+      <div class="relative cursor-pointer" @click="goToNotifications">
         <i class="fas fa-bell text-gray-600 dark:text-gray-300 text-xl"></i>
-        <span v-if="unreadCount > 0" class="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+        <!-- Badge uniquement pour l'employé (admin peut être ajouté plus tard) -->
+        <span v-if="role === 'employee' && unreadCount > 0" class="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
           {{ unreadCount }}
         </span>
       </div>
@@ -70,8 +72,11 @@ let notificationInterval = null
 
 function logout() { auth.logout(); router.push('/login') }
 function goToNotifications() {
-  if (role.value === 'employee') router.push('/employee/notifications')
-  else router.push('/admin/logs')
+  if (role.value === 'employee') {
+    router.push('/employee/notifications')
+  } else if (role.value === 'admin') {
+    router.push('/admin/logs')  // ou '/admin/notifications' si créé
+  }
 }
 
 onMounted(() => {

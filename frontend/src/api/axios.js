@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  // Utiliser l'URL complète de Render si la variable d'environnement n'est pas définie
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://sgrh-x7a8.onrender.com/api',
   headers: { 'Accept': 'application/json' },
 });
 
