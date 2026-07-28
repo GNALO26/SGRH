@@ -18,7 +18,7 @@ class RetardAuthorization extends Model
 
     protected $casts = [
         'date' => 'date',
-        'expected_arrival' => 'datetime',
+        // 'expected_arrival' => 'datetime', // ← SUPPRIMÉ, car expected_arrival est un time string, pas un datetime
     ];
 
     public function user(): BelongsTo

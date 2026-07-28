@@ -18,75 +18,114 @@ class AttendanceService
         $today = $now->toDateString();
 
         // 1. Absence autorisée aujourd'hui ?
-        if (Leave::where('user_id', $employee->id)->where('status', 'approved')
-            ->whereDate('start_date', '<=', $today)->whereDate('end_date', '>=', $today)->exists()) {
-            return ['success' => false, 'message' => 'Pointage impossible : vous êtes en absence autorisée aujourd\'hui.', 'status_code' => 403];
+        if (Leave::where('user_id', $employee->id)
+            ->where('status', 'approved')
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->exists()) {
+            return [
+                'success'     => false,
+                'message'     => 'Pointage impossible : vous êtes en absence autorisée aujourd\'hui.',
+                'status_code' => 403,
+            ];
         }
 
         // 2. Géolocalisation
         try {
             $isAtOffice = $this->geoFencingService->isEmployeeAtOffice($employee, $latitude, $longitude);
         } catch (\RuntimeException $e) {
-            return ['success' => false, 'message' => $e->getMessage(), 'status_code' => 400];
+            return [
+                'success'     => false,
+                'message'     => $e->getMessage(),
+                'status_code' => 400,
+            ];
         }
         if (! $isAtOffice) {
-            return ['success' => false, 'message' => 'Erreur : Vous devez être présent dans les locaux de l\'entreprise pour pointer.', 'status_code' => 403];
+            return [
+                'success'     => false,
+                'message'     => 'Erreur : Vous devez être présent dans les locaux de l\'entreprise pour pointer.',
+                'status_code' => 403,
+            ];
         }
 
         // 3. Un seul pointage par jour
         if (Attendance::where('user_id', $employee->id)->whereDate('date', $today)->exists()) {
-            return ['success' => false, 'message' => 'Vous avez déjà pointé aujourd\'hui.', 'status_code' => 409];
+            return [
+                'success'     => false,
+                'message'     => 'Vous avez déjà pointé aujourd\'hui.',
+                'status_code' => 409,
+            ];
         }
 
-        // 4. Paramètres admin (horaires dynamiques)
-        $admin       = User::where('role', 'admin')->firstOrFail();
-        $openingTime = Carbon::createFromTimeString($admin->official_opening_time);
+        // 4. Paramètres de l'entreprise (admin) – horaires dynamiques
+        $admin = User::where('role', 'admin')->firstOrFail();
+        $openingTime = Carbon::createFromTimeString($admin->official_opening_time ?? '08:00');
         $closingTime = Carbon::createFromTimeString($admin->official_closing_time ?? '20:00');
 
-        // Fenêtre de pointage
+        // Fenêtre de pointage : 1h avant ouverture → 3h avant fermeture
         $startWindow = (clone $openingTime)->subHour();
         $endWindow   = (clone $closingTime)->subHours(3);
 
-        // Shift de nuit
+        // Shift de nuit : si fermeture < ouverture (ex: 23:00 - 06:00)
         if ($closingTime->lessThan($openingTime)) {
             $endWindow->addDay();
         }
 
         if ($now->lt($startWindow)) {
-            return ['success' => false, 'message' => 'Le pointage n\'est pas encore ouvert. Revenez à partir de ' . $startWindow->format('H:i') . '.', 'status_code' => 403];
+            return [
+                'success'     => false,
+                'message'     => 'Le pointage n\'est pas encore ouvert. Revenez à partir de ' . $startWindow->format('H:i') . '.',
+                'status_code' => 403,
+            ];
         }
         if ($now->gt($endWindow)) {
-            return ['success' => false, 'message' => 'Le pointage est fermé pour aujourd\'hui.', 'status_code' => 403];
+            return [
+                'success'     => false,
+                'message'     => 'Le pointage est fermé pour aujourd\'hui. Vous pourrez pointer demain à partir de ' . $startWindow->format('H:i') . '.',
+                'status_code' => 403,
+            ];
         }
 
-        // 5. Paliers horaires
-        $deadlineLate = (clone $openingTime)->addHour();
+        // 5. Paliers horaires (basés sur l'heure d'ouverture)
+        $deadlineLate = (clone $openingTime)->addHour(); // +1h = retard standard
         $status       = '';
         $lateMinutes  = 0;
         $isJustified  = false;
 
         if ($now->lt($openingTime)) {
+            // Avant l'heure d'ouverture → à l'heure
             $status = 'on_time';
         } elseif ($now->gte($openingTime) && $now->lte($deadlineLate)) {
-            $status = 'late';
+            // Retard standard (jusqu'à 1h après ouverture)
+            $status      = 'late';
             $lateMinutes = (int) $openingTime->diffInMinutes($now);
         } else {
+            // Grand retard (au-delà de 1h après ouverture)
+            // Vérifier s'il existe une autorisation de retard validée pour aujourd'hui
             $retardAuth = RetardAuthorization::where('user_id', $employee->id)
-                ->where('status', 'approved')->whereDate('date', $today)->first();
+                ->where('status', 'approved')
+                ->whereDate('date', $today)
+                ->first();
 
             if ($retardAuth) {
-                $status = 'authorized';
+                $status      = 'authorized';
                 $lateMinutes = (int) $openingTime->diffInMinutes($now);
             } else {
                 if (empty($justification)) {
-                    return ['success' => false, 'message' => 'Grand retard détecté. Merci de fournir une justification.', 'requires_justification' => true, 'status_code' => 400];
+                    return [
+                        'success'               => false,
+                        'message'               => 'Grand retard détecté. Merci de fournir une justification.',
+                        'requires_justification' => true,
+                        'status_code'           => 400,
+                    ];
                 }
-                $status = 'major_late';
+                $status      = 'major_late';
                 $lateMinutes = (int) $openingTime->diffInMinutes($now);
                 $isJustified = true;
             }
         }
 
+        // Création du pointage
         $attendance = Attendance::create([
             'user_id'       => $employee->id,
             'date'          => $today,
@@ -99,6 +138,10 @@ class AttendanceService
             'justification' => $justification,
         ]);
 
-        return ['success' => true, 'attendance' => $attendance, 'status_code' => 201];
+        return [
+            'success'     => true,
+            'attendance'  => $attendance,
+            'status_code' => 201,
+        ];
     }
 }
