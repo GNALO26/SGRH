@@ -3,9 +3,6 @@
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-bold dark:text-white">Mes présences</h1>
       <div class="flex gap-2">
-        <button @click="download('csv')" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
-          <i class="fas fa-download mr-1"></i>CSV
-        </button>
         <button @click="download('pdf')" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
           <i class="fas fa-file-pdf mr-1"></i>PDF
         </button>
