@@ -29,7 +29,6 @@ class AttendanceController extends Controller
     public function store(AttendanceRequest $request): JsonResponse
     {
         $employee = $request->user();
-
         $result = $this->attendanceService->attemptCheckIn(
             $employee,
             $request->latitude,
@@ -68,6 +67,16 @@ class AttendanceController extends Controller
                 "Votre pointage de {$attendance->check_in_time} a été enregistré.",
                 'fas fa-check-circle',
                 now()->diffForHumans()
+            );
+        } catch (\Exception $e) {
+            report($e);
+        }
+
+        // Notification aux administrateurs (pour le badge)
+        try {
+            $this->notificationService->createForAdmins(
+                "{$employee->name} a pointé à {$attendance->check_in_time}",
+                'fas fa-fingerprint'
             );
         } catch (\Exception $e) {
             report($e);
@@ -135,7 +144,11 @@ class AttendanceController extends Controller
         $request->validate([
             'format'     => 'required|in:csv,pdf',
             'start_date' => 'required|date',
-            'end_date'   => 'required|date',
+            'end_date'   => 'required|date|after_or_equal:start_date',
+        ], [
+            'start_date.required'          => 'La date de début est obligatoire.',
+            'end_date.required'            => 'La date de fin est obligatoire.',
+            'end_date.after_or_equal'      => 'La date de fin doit être postérieure ou égale à la date de début.',
         ]);
 
         $employee    = $request->user();

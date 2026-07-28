@@ -3,7 +3,10 @@
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-bold dark:text-white">Mes présences</h1>
       <div class="flex gap-2">
-        <button @click="downloadPDF" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
+        <button @click="download('csv')" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
+          <i class="fas fa-download mr-1"></i>CSV
+        </button>
+        <button @click="download('pdf')" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
           <i class="fas fa-file-pdf mr-1"></i>PDF
         </button>
       </div>
@@ -55,6 +58,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/api/axios'
+import Swal from 'sweetalert2'
 
 const attendances = ref([])
 const startDate = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().substr(0,10))
@@ -73,7 +77,7 @@ async function fetchData() {
     switch (att.status) {
       case 'on_time':
         att.statusClass = 'bg-green-100 text-green-700'
-        att.statusLabel = "À l'heure"
+        att.statusLabel = 'À l\'heure'
         break
       case 'late':
         att.statusClass = 'bg-orange-100 text-orange-700'
@@ -94,21 +98,31 @@ async function fetchData() {
   })
 }
 
-async function downloadPDF() {
+async function download(format) {
+  if (!startDate.value || !endDate.value) {
+    Swal.fire('Erreur', 'Veuillez sélectionner une plage de dates.', 'warning')
+    return
+  }
+  if (new Date(endDate.value) < new Date(startDate.value)) {
+    Swal.fire('Erreur', 'La date de fin doit être postérieure à la date de début.', 'warning')
+    return
+  }
+
   try {
     const response = await api.get('/employee/attendance/export', {
-      params: { start_date: startDate.value, end_date: endDate.value },
+      params: { format, start_date: startDate.value, end_date: endDate.value },
       responseType: 'blob',
     })
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', 'presences.pdf')
+    link.setAttribute('download', `presences.${format}`)
     document.body.appendChild(link)
     link.click()
     link.remove()
   } catch (e) {
     console.error('Erreur de téléchargement', e)
+    Swal.fire('Erreur', e.response?.data?.message || 'Erreur lors du téléchargement.', 'error')
   }
 }
 
