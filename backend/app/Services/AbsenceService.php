@@ -13,63 +13,104 @@ use Illuminate\Support\Facades\Log;
 
 class AbsenceService
 {
+    /**
+     * Détecte les absences non justifiées depuis la dernière connexion de l'employé
+     * et crée des entrées dans unjustified_absences si nécessaire.
+     *
+     * @param User $user L'employé concerné
+     * @return bool True si au moins une absence a été créée
+     */
     public function detectAndCreateAbsences(User $user): bool
     {
-        $lastLogin = $user->last_login_at ?? $user->created_at;
-        $startDate = Carbon::parse($lastLogin)->startOfDay();
-        $endDate = Carbon::today()->subDay(); // jusqu'à hier
-
-        if ($startDate->greaterThanOrEqualTo($endDate)) {
+        if ($user->role !== 'employee') {
             return false;
         }
 
-        $period = CarbonPeriod::create($startDate, $endDate);
+        // Date de début : dernière connexion ou création du compte
+        $lastLogin = $user->last_login_at 
+            ? Carbon::parse($user->last_login_at)->startOfDay() 
+            : Carbon::parse($user->created_at)->startOfDay();
+
+        // Date de fin : hier (on ne compte pas aujourd'hui)
+        $endDate = Carbon::yesterday()->endOfDay();
+
+        // Si la dernière connexion est aujourd'hui ou après, rien à faire
+        if ($lastLogin->greaterThanOrEqualTo(Carbon::today())) {
+            Log::info("AbsenceService : Aucune absence à détecter pour {$user->name} (dernière connexion aujourd'hui)");
+            return false;
+        }
+
+        Log::info("AbsenceService : Détection pour {$user->name} du {$lastLogin->toDateString()} au {$endDate->toDateString()}");
+
+        // Collecter les jours ouvrés manquants
         $missingDays = [];
+        $period = CarbonPeriod::create($lastLogin, $endDate);
 
         foreach ($period as $date) {
-            if ($date->isWeekend()) continue;
+            // Ignorer les week-ends
+            if ($date->isWeekend()) {
+                continue;
+            }
 
-            // Vérifier si jour férié
-            if (Holiday::whereDate('date', $date)->exists()) continue;
+            // Ignorer les jours fériés
+            if (Holiday::whereDate('date', $date)->exists()) {
+                continue;
+            }
 
-            // Vérifier si pointage
-            if (Attendance::where('user_id', $user->id)->whereDate('date', $date)->exists()) continue;
+            // Ignorer si un pointage existe
+            if (Attendance::where('user_id', $user->id)->whereDate('date', $date)->exists()) {
+                continue;
+            }
 
-            // Vérifier si congé validé
+            // Ignorer si un congé approuvé couvre cette date
             if (Leave::where('user_id', $user->id)
                 ->where('status', 'approved')
                 ->whereDate('start_date', '<=', $date)
                 ->whereDate('end_date', '>=', $date)
-                ->exists()) continue;
+                ->exists()) {
+                continue;
+            }
 
             $missingDays[] = $date->toDateString();
         }
 
-        if (empty($missingDays)) return false;
+        if (empty($missingDays)) {
+            Log::info("AbsenceService : Aucun jour manquant pour {$user->name}");
+            return false;
+        }
 
         // Regrouper en plages continues
         $ranges = $this->groupConsecutiveDates($missingDays);
         $created = false;
 
         foreach ($ranges as $range) {
-            // Éviter doublon sur la même plage
+            $fromDate = Carbon::parse($range[0]);
+            $toDate   = Carbon::parse(end($range));
+
+            // Éviter les doublons sur la même plage
             $exists = UnjustifiedAbsence::where('user_id', $user->id)
-                ->where('from_date', $range[0])
-                ->where('to_date', end($range))
+                ->where('from_date', $fromDate)
+                ->where('to_date', $toDate)
                 ->exists();
-            if ($exists) continue;
+
+            if ($exists) {
+                Log::info("AbsenceService : Plage déjà existante pour {$user->name} : {$fromDate->toDateString()} - {$toDate->toDateString()}");
+                continue;
+            }
 
             UnjustifiedAbsence::create([
-                'user_id' => $user->id,
-                'from_date' => $range[0],
-                'to_date' => end($range),
-                'status' => 'pending',
+                'user_id'   => $user->id,
+                'from_date' => $fromDate,
+                'to_date'   => $toDate,
+                'status'    => 'pending',
             ]);
+
+            Log::info("AbsenceService : Absence créée pour {$user->name} : {$fromDate->toDateString()} - {$toDate->toDateString()}");
             $created = true;
         }
 
+        // Notification aux admins
         if ($created) {
-            // Notification aux admins
             $admins = User::where('role', 'admin')->get();
             foreach ($admins as $admin) {
                 app(NotificationService::class)->createForUser(
@@ -83,21 +124,32 @@ class AbsenceService
         return $created;
     }
 
+    /**
+     * Regroupe une liste de dates consécutives en plages.
+     */
     private function groupConsecutiveDates(array $dates): array
     {
-        $ranges = [];
-        $current = [];
-        $prev = null;
+        if (empty($dates)) {
+            return [];
+        }
 
-        foreach ($dates as $date) {
-            if ($prev && Carbon::parse($date)->diffInDays(Carbon::parse($prev)) > 1) {
+        sort($dates);
+        $ranges = [];
+        $current = [$dates[0]];
+        $prev = Carbon::parse($dates[0]);
+
+        for ($i = 1; $i < count($dates); $i++) {
+            $date = Carbon::parse($dates[$i]);
+            if ($date->diffInDays($prev) === 1) {
+                $current[] = $dates[$i];
+            } else {
                 $ranges[] = $current;
-                $current = [];
+                $current = [$dates[$i]];
             }
-            $current[] = $date;
             $prev = $date;
         }
-        if (!empty($current)) $ranges[] = $current;
+        $ranges[] = $current;
+
         return $ranges;
     }
 }
