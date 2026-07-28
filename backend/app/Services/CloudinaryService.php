@@ -38,13 +38,26 @@ class CloudinaryService
         $extension = strtolower($file->getClientOriginalExtension());
         $resourceType = in_array($extension, $imageExtensions) ? 'image' : 'raw';
 
+        // Nom original nettoyé, sans extension
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $safeName = preg_replace('/[^A-Za-z0-9_-]/', '_', $originalName);
+        $uniqueSuffix = uniqid();
+
         try {
-            $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
-                'folder'          => $folder,
-                'resource_type'   => $resourceType,
-                'use_filename'    => true,
-                'unique_filename' => true,
-            ]);
+            $options = [
+                'folder'        => $folder,
+                'resource_type' => $resourceType,
+            ];
+
+            if ($resourceType === 'raw') {
+                // Pour raw, l'extension doit faire partie du public_id
+                $options['public_id'] = $safeName . '_' . $uniqueSuffix . '.' . $extension;
+            } else {
+                // Pour les images, Cloudinary gère le format séparément
+                $options['public_id'] = $safeName . '_' . $uniqueSuffix;
+            }
+
+            $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), $options);
         } catch (\Exception $e) {
             throw new Exception('Erreur Cloudinary : ' . $e->getMessage(), 0, $e);
         }
