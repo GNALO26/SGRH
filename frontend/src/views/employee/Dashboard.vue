@@ -60,10 +60,11 @@
         </div>
 
         <!-- Colonne centrale -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col">
           <h2 class="text-lg font-semibold mb-4 dark:text-white"><i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier {{ currentMonth }}</h2>
           <CalendarView :year="currentYear" :month="currentMonthNum" :events="calendarEvents" />
-          <div class="mt-4 space-y-3">
+          <!-- Espacement augmenté pour descendre la citation -->
+          <div class="mt-8 space-y-3">
             <DailyQuote />
             <div v-if="upcomingHolidays.length" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 text-sm">
               <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
