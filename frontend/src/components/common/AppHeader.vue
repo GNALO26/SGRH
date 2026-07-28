@@ -15,8 +15,7 @@
       <!-- Cloche pour les deux rôles -->
       <div class="relative cursor-pointer" @click="goToNotifications">
         <i class="fas fa-bell text-gray-600 dark:text-gray-300 text-xl"></i>
-        <!-- Badge uniquement pour l'employé (admin peut être ajouté plus tard) -->
-        <span v-if="role === 'employee' && unreadCount > 0" class="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+        <span v-if="unreadCount > 0" class="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
           {{ unreadCount }}
         </span>
       </div>
@@ -48,6 +47,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/store/auth'
 import { useRouter } from 'vue-router'
 import { useNotifications } from '@/composables/useNotifications'
+import { useAdminNotifications } from '@/composables/useAdminNotifications'
 import { useDarkMode } from '@/composables/useDarkMode'
 
 defineEmits(['toggle-sidebar'])
@@ -55,11 +55,18 @@ defineEmits(['toggle-sidebar'])
 const auth = useAuthStore()
 const router = useRouter()
 const menuOpen = ref(false)
-const { unreadCount, fetchUnreadCount } = useNotifications()
+
+// Notifications employé
+const { unreadCount: empUnread, fetchUnreadCount: fetchEmp } = useNotifications()
+// Notifications admin
+const { unreadCount: admUnread, fetchUnreadCount: fetchAdm } = useAdminNotifications()
+
+const role = computed(() => auth.user?.role)
+const unreadCount = computed(() => role.value === 'admin' ? admUnread.value : empUnread.value)
+
 const { isDark, toggle } = useDarkMode()
 const toggleDark = toggle
 
-const role = computed(() => auth.user?.role)
 const userName = computed(() => auth.user?.name || 'Utilisateur')
 const avatarUrl = computed(() =>
   auth.user?.avatar_url ||
@@ -75,14 +82,19 @@ function goToNotifications() {
   if (role.value === 'employee') {
     router.push('/employee/notifications')
   } else if (role.value === 'admin') {
-    router.push('/admin/logs')  // ou '/admin/notifications' si créé
+    router.push('/admin/notifications')  // si la page existe, sinon /admin/logs
   }
 }
 
 onMounted(() => {
-  if (auth.isAuthenticated && role.value === 'employee') {
-    fetchUnreadCount()
-    notificationInterval = setInterval(fetchUnreadCount, 30000)
+  if (auth.isAuthenticated) {
+    if (role.value === 'employee') {
+      fetchEmp()
+      notificationInterval = setInterval(fetchEmp, 30000)
+    } else if (role.value === 'admin') {
+      fetchAdm()
+      notificationInterval = setInterval(fetchAdm, 30000)
+    }
   }
 })
 

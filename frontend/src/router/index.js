@@ -48,6 +48,8 @@ const routes = [
       { path: 'parametres', name: 'Settings', component: () => import('@/views/admin/Settings.vue') },
       { path: 'utilisateurs', name: 'Users', component: () => import('@/views/admin/Users.vue') },
       { path: 'logs', name: 'Logs', component: () => import('@/views/admin/Logs.vue') },
+      { path: 'notifications', name: 'AdminNotifications', component: () => import('@/views/admin/Notifications.vue') },
+      { path: 'profil', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue') },
     ]
   },
   { path: '/', redirect: '/login' },
