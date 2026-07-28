@@ -1,127 +1,301 @@
 <template>
-  <div class="space-y-6">
-    <h1 class="text-2xl font-bold dark:text-white">Mes demandes</h1>
-    <div class="flex border-b dark:border-gray-700">
-      <button @click="activeTab = 'leaves'" :class="['px-4 py-2 font-medium', activeTab === 'leaves' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 dark:text-gray-400']"><i class="fas fa-calendar-minus mr-1"></i>Congés & Absences</button>
-      <button @click="activeTab = 'retard'" :class="['px-4 py-2 font-medium', activeTab === 'retard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 dark:text-gray-400']"><i class="fas fa-clock mr-1"></i>Autorisations de retard</button>
+  <div class="p-6 max-w-7xl mx-auto space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">Mes demandes de congés</h1>
+        <p class="text-gray-500 text-sm">Soumettez une nouvelle demande ou consultez l'état de vos demandes passées.</p>
+      </div>
+      <button
+        @click="showModal = true"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg transition flex items-center justify-center shadow-sm"
+      >
+        <i class="fas fa-plus mr-2"></i> Nouvelle demande
+      </button>
     </div>
 
-    <div v-if="activeTab === 'leaves'" class="space-y-6">
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <h2 class="text-lg font-semibold mb-4 dark:text-white">Nouvelle demande de congé / absence</h2>
-        <form @submit.prevent="submitLeave" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm mb-1 dark:text-gray-300">Date de début</label>
-              <input type="date" v-model="leaveForm.start_date" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', leaveErrors.start_date ? 'border-red-500 ring-1 ring-red-500' : '']" />
-              <p v-if="leaveErrors.start_date" class="text-red-600 text-xs mt-1">{{ leaveErrors.start_date[0] }}</p>
-            </div>
-            <div>
-              <label class="block text-sm mb-1 dark:text-gray-300">Date de fin</label>
-              <input type="date" v-model="leaveForm.end_date" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', leaveErrors.end_date ? 'border-red-500 ring-1 ring-red-500' : '']" />
-              <p v-if="leaveErrors.end_date" class="text-red-600 text-xs mt-1">{{ leaveErrors.end_date[0] }}</p>
-            </div>
-          </div>
-          <div><label class="block text-sm mb-1 dark:text-gray-300">Type</label><select v-model="leaveForm.type" required class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white"><option value="absence">Absence</option><option value="vacation">Congé</option></select></div>
-          <div>
-            <label class="block text-sm mb-1 dark:text-gray-300">Motif</label>
-            <textarea v-model="leaveForm.reason" rows="3" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', leaveErrors.reason ? 'border-red-500 ring-1 ring-red-500' : '']"></textarea>
-            <p v-if="leaveErrors.reason" class="text-red-600 text-xs mt-1">{{ leaveErrors.reason[0] }}</p>
-          </div>
-          <button type="submit" :disabled="submittingLeave" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">{{ submittingLeave ? 'Envoi...' : 'Envoyer la demande' }}</button>
-        </form>
+    <!-- Tableau des demandes -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div v-if="loading" class="p-8 text-center text-gray-400">
+        <i class="fas fa-spinner fa-spin text-3xl"></i>
+        <p class="mt-2 text-sm">Chargement des demandes...</p>
       </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <h2 class="text-lg font-semibold mb-4 dark:text-white">Historique des demandes</h2>
-        <div v-if="leaves.length"><div v-for="leave in leaves" :key="leave.id" class="flex justify-between items-center py-3 border-b last:border-0 dark:border-gray-700"><div><p class="font-medium dark:text-white">{{ leave.type === 'vacation' ? 'Congé' : 'Absence' }} du {{ leave.start_date }} au {{ leave.end_date }}</p><p class="text-sm text-gray-500 dark:text-gray-400">{{ leave.reason }}</p></div><div class="flex items-center gap-2"><span class="px-2 py-1 rounded-full text-xs" :class="statusClass(leave.status)">{{ statusLabel(leave.status) }}</span><button v-if="leave.status === 'pending'" @click="cancelLeave(leave.id)" class="text-red-500 hover:underline text-sm">Annuler</button></div></div></div>
-        <p v-else class="text-gray-500 dark:text-gray-400 py-4 text-center">Aucune demande.</p>
+
+      <div v-else-if="requests.length === 0" class="p-12 text-center text-gray-400">
+        <i class="fas fa-umbrella-beach text-4xl mb-3 text-gray-300"></i>
+        <p class="text-base font-medium text-gray-600">Aucune demande de congé enregistrée</p>
+        <p class="text-sm mt-1">Cliquez sur le bouton ci-dessus pour effectuer votre première demande.</p>
+      </div>
+
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-50/70 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th class="py-3 px-4">Type</th>
+              <th class="py-3 px-4">Date début</th>
+              <th class="py-3 px-4">Date fin</th>
+              <th class="py-3 px-4">Durée</th>
+              <th class="py-3 px-4">Raison</th>
+              <th class="py-3 px-4">Statut</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 text-sm">
+            <tr v-for="req in requests" :key="req.id" class="hover:bg-gray-50/50 transition">
+              <td class="py-3.5 px-4 font-semibold text-gray-800">{{ getLeaveTypeLabel(req.type) }}</td>
+              <td class="py-3.5 px-4 text-gray-600">{{ formatDate(req.start_date) }}</td>
+              <td class="py-3.5 px-4 text-gray-600">{{ formatDate(req.end_date) }}</td>
+              <td class="py-3.5 px-4 text-gray-600 font-medium">{{ req.days_count }} jour(s)</td>
+              <td class="py-3.5 px-4 text-gray-500 max-w-xs truncate" :title="req.reason">
+                {{ req.reason || '-' }}
+              </td>
+              <td class="py-3.5 px-4">
+                <span
+                  :class="{
+                    'bg-amber-100 text-amber-800': req.status === 'pending',
+                    'bg-emerald-100 text-emerald-800': req.status === 'approved',
+                    'bg-rose-100 text-rose-800': req.status === 'rejected'
+                  }"
+                  class="px-2.5 py-1 rounded-full text-xs font-semibold inline-block"
+                >
+                  {{ formatStatus(req.status) }}
+                </span>
+              </td>
+              <td class="py-3.5 px-4 text-right">
+                <button
+                  v-if="req.status === 'pending'"
+                  @click="cancelRequest(req.id)"
+                  class="text-rose-600 hover:text-rose-800 text-xs font-medium bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded transition"
+                >
+                  Annuler
+                </button>
+                <span v-else class="text-gray-400 text-xs">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <div v-if="activeTab === 'retard'" class="space-y-6">
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <h2 class="text-lg font-semibold mb-4 dark:text-white">Demande d'autorisation de retard</h2>
-        <form @submit.prevent="submitRetard" class="space-y-4">
+    <!-- Modal de Nouvelle Demande -->
+    <div
+      v-if="showModal"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    >
+      <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 animate-fade-in">
+        <div class="flex justify-between items-center border-b pb-3">
+          <h2 class="text-lg font-bold text-gray-800">Demander un congé</h2>
+          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+
+        <form @submit.prevent="submitLeaveRequest" class="space-y-4">
+          <!-- Type de congé -->
           <div>
-            <label class="block text-sm mb-1 dark:text-gray-300">Date</label>
-            <input type="date" v-model="retardForm.date" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', retardErrors.date ? 'border-red-500 ring-1 ring-red-500' : '']" />
-            <p v-if="retardErrors.date" class="text-red-600 text-xs mt-1">{{ retardErrors.date[0] }}</p>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Type de congé *</label>
+            <select
+              v-model="form.type"
+              required
+              class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              <option value="" disabled>Sélectionnez un type</option>
+              <option value="paid">Congé Payé</option>
+              <option value="sick">Congé Maladie</option>
+              <option value="unpaid">Congé Sans Solde</option>
+              <option value="maternity">Maternité / Paternité</option>
+              <option value="other">Autre</option>
+            </select>
           </div>
+
+          <!-- Dates -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Date de début *</label>
+              <input
+                type="date"
+                v-model="form.start_date"
+                required
+                class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin *</label>
+              <input
+                type="date"
+                v-model="form.end_date"
+                required
+                class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <!-- Raison -->
           <div>
-            <label class="block text-sm mb-1 dark:text-gray-300">Heure d'arrivée prévue</label>
-            <input type="time" v-model="retardForm.expected_arrival" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', retardErrors.expected_arrival ? 'border-red-500 ring-1 ring-red-500' : '']" />
-            <p v-if="retardErrors.expected_arrival" class="text-red-600 text-xs mt-1">{{ retardErrors.expected_arrival[0] }}</p>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Motif / Raison *</label>
+            <textarea
+              v-model="form.reason"
+              rows="3"
+              required
+              placeholder="Explication détaillée de votre demande..."
+              class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            ></textarea>
           </div>
+
+          <!-- Pièce jointe -->
           <div>
-            <label class="block text-sm mb-1 dark:text-gray-300">Motif</label>
-            <textarea v-model="retardForm.reason" rows="3" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', retardErrors.reason ? 'border-red-500 ring-1 ring-red-500' : '']"></textarea>
-            <p v-if="retardErrors.reason" class="text-red-600 text-xs mt-1">{{ retardErrors.reason[0] }}</p>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Pièce jointe (facultatif)</label>
+            <input
+              type="file"
+              @change="handleFileChange"
+              accept=".pdf,.jpg,.jpeg,.png"
+              class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border rounded-lg p-1"
+            />
           </div>
-          <button type="submit" :disabled="submittingRetard" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">{{ submittingRetard ? 'Envoi...' : 'Envoyer' }}</button>
+
+          <!-- Actions modal -->
+          <div class="flex justify-end gap-3 pt-3 border-t">
+            <button
+              type="button"
+              @click="closeModal"
+              class="px-4 py-2 border rounded-lg text-gray-600 hover:bg-gray-50 font-medium text-sm"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              :disabled="submitting"
+              class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm disabled:opacity-50 flex items-center"
+            >
+              <i v-if="submitting" class="fas fa-spinner fa-spin mr-2"></i>
+              {{ submitting ? 'Soumission...' : 'Envoyer la demande' }}
+            </button>
+          </div>
         </form>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-        <h2 class="text-lg font-semibold mb-4 dark:text-white">Demandes d'autorisation de retard</h2>
-        <div v-if="retardAuths.length"><div v-for="auth in retardAuths" :key="auth.id" class="flex justify-between items-center py-3 border-b last:border-0 dark:border-gray-700"><div><p class="font-medium dark:text-white">{{ auth.date }} - Arrivée prévue {{ auth.expected_arrival }}</p><p class="text-sm text-gray-500 dark:text-gray-400">{{ auth.reason }}</p></div><div class="flex items-center gap-2"><span class="px-2 py-1 rounded-full text-xs" :class="statusClass(auth.status)">{{ statusLabel(auth.status) }}</span><button v-if="auth.status === 'pending'" @click="cancelRetard(auth.id)" class="text-red-500 hover:underline text-sm">Annuler</button></div></div></div>
-        <p v-else class="text-gray-500 dark:text-gray-400 py-4 text-center">Aucune demande.</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import api from '@/api/axios'
 import Swal from 'sweetalert2'
 
-const activeTab = ref('leaves'), leaves = ref([]), retardAuths = ref([])
-const leaveForm = ref({ start_date: '', end_date: '', type: 'absence', reason: '' }), retardForm = ref({ date: '', expected_arrival: '', reason: '' })
-const leaveErrors = ref({}), retardErrors = ref({}), submittingLeave = ref(false), submittingRetard = ref(false)
-let pollingInterval = null
+const loading = ref(true)
+const submitting = ref(false)
+const showModal = ref(false)
+const requests = ref([])
 
-function statusClass(s) { return { pending: 'bg-yellow-100 text-yellow-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700' }[s] || '' }
-function statusLabel(s) { return { pending: 'En attente', approved: 'Validée', rejected: 'Refusée' }[s] || s }
+const form = reactive({
+  type: '',
+  start_date: '',
+  end_date: '',
+  reason: '',
+  file: null
+})
 
-async function fetchLeaves() {
-  try {
-    const { data } = await api.get('/employee/leaves')
-    leaves.value.forEach(old => { const n = data.find(l => l.id === old.id); if (n && old.status === 'pending' && n.status !== 'pending') { Swal.fire({ toast: true, position: 'top-end', icon: n.status === 'approved' ? 'success' : 'error', title: `Votre demande de ${n.type === 'vacation' ? 'congé' : 'absence'} a été ${n.status === 'approved' ? 'validée' : 'refusée'}.`, showConfirmButton: false, timer: 5000 }) } })
-    leaves.value = data
-  } catch (e) { Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error') }
+function getLeaveTypeLabel(type) {
+  const types = {
+    paid: 'Congé Payé',
+    sick: 'Congé Maladie',
+    unpaid: 'Congé Sans Solde',
+    maternity: 'Maternité / Paternité',
+    other: 'Autre'
+  }
+  return types[type] || type
 }
-async function fetchRetards() {
-  try {
-    const { data } = await api.get('/employee/retard-authorizations')
-    retardAuths.value.forEach(old => { const n = data.find(a => a.id === old.id); if (n && old.status === 'pending' && n.status !== 'pending') { Swal.fire({ toast: true, position: 'top-end', icon: n.status === 'approved' ? 'success' : 'error', title: `Votre autorisation de retard du ${n.date} a été ${n.status === 'approved' ? 'validée' : 'refusée'}.`, showConfirmButton: false, timer: 5000 }) } })
-    retardAuths.value = data
-  } catch (e) { Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error') }
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  return isNaN(date.getTime()) ? dateStr : date.toLocaleDateString('fr-FR')
 }
-function startPolling() { pollingInterval = setInterval(() => { if (activeTab.value === 'leaves') fetchLeaves(); else fetchRetards() }, 30000) }
 
-onMounted(() => { fetchLeaves(); fetchRetards(); startPolling() })
-onUnmounted(() => clearInterval(pollingInterval))
-watch(activeTab, () => { if (activeTab.value === 'leaves') fetchLeaves(); else fetchRetards() })
+function formatStatus(status) {
+  switch (status) {
+    case 'pending': return 'En attente'
+    case 'approved': return 'Approuvée'
+    case 'rejected': return 'Refusée'
+    default: return status
+  }
+}
 
-async function submitLeave() {
-  submittingLeave.value = true; leaveErrors.value = {}
+function handleFileChange(event) {
+  form.file = event.target.files[0] || null
+}
+
+function closeModal() {
+  showModal.value = false
+  form.type = ''
+  form.start_date = ''
+  form.end_date = ''
+  form.reason = ''
+  form.file = null
+}
+
+async function loadRequests() {
+  loading.value = true
   try {
-    await api.post('/employee/leaves', leaveForm.value)
-    Swal.fire('Succès', 'Demande envoyée.', 'success'); leaveForm.value = { start_date: '', end_date: '', type: 'absence', reason: '' }; fetchLeaves()
+    const { data } = await api.get('/employee/leave-requests')
+    requests.value = data || []
   } catch (e) {
-    if (e.response?.status === 422 && e.response.data?.fieldErrors) leaveErrors.value = e.response.data.fieldErrors
-    Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
-  } finally { submittingLeave.value = false }
+    Swal.fire('Erreur', 'Impossible de charger l\'historique des congés.', 'error')
+  } finally {
+    loading.value = false
+  }
 }
-async function submitRetard() {
-  submittingRetard.value = true; retardErrors.value = {}
+
+async function submitLeaveRequest() {
+  if (new Date(form.start_date) > new Date(form.end_date)) {
+    Swal.fire('Attention', 'La date de début ne peut pas être supérieure à la date de fin.', 'warning')
+    return
+  }
+
+  submitting.value = true
   try {
-    await api.post('/employee/retard-authorizations', retardForm.value)
-    Swal.fire('Succès', 'Demande envoyée.', 'success'); retardForm.value = { date: '', expected_arrival: '', reason: '' }; fetchRetards()
+    const payload = new FormData()
+    payload.append('type', form.type)
+    payload.append('start_date', form.start_date)
+    payload.append('end_date', form.end_date)
+    payload.append('reason', form.reason)
+    if (form.file) payload.append('attachment', form.file)
+
+    await api.post('/employee/leave-requests', payload, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    Swal.fire('Succès', 'Votre demande de congé a été transmise.', 'success')
+    closeModal()
+    await loadRequests()
   } catch (e) {
-    if (e.response?.status === 422 && e.response.data?.fieldErrors) retardErrors.value = e.response.data.fieldErrors
-    Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
-  } finally { submittingRetard.value = false }
+    Swal.fire('Erreur', e.response?.data?.message || 'Erreur lors de l\'envoi de la demande.', 'error')
+  } finally {
+    submitting.value = false
+  }
 }
-async function cancelLeave(id) { if ((await Swal.fire({ title: 'Annuler la demande ?', showCancelButton: true })).isConfirmed) { await api.delete(`/employee/leaves/${id}`); fetchLeaves(); Swal.fire('Succès', 'Demande annulée', 'success') } }
-async function cancelRetard(id) { if ((await Swal.fire({ title: 'Annuler la demande ?', showCancelButton: true })).isConfirmed) { await api.delete(`/employee/retard-authorizations/${id}`); fetchRetards(); Swal.fire('Succès', 'Demande annulée', 'success') } }
+
+async function cancelRequest(id) {
+  const result = await Swal.fire({
+    title: 'Êtes-vous sûr ?',
+    text: 'Voulez-vous vraiment annuler cette demande ?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Oui, annuler',
+    cancelButtonText: 'Non'
+  })
+
+  if (result.isConfirmed) {
+    try {
+      await api.delete(`/employee/leave-requests/${id}`)
+      Swal.fire('Annulée', 'La demande a été annulée.', 'success')
+      await loadRequests()
+    } catch (e) {
+      Swal.fire('Erreur', 'Impossible d\'annuler cette demande.', 'error')
+    }
+  }
+}
+
+onMounted(() => {
+  loadRequests()
+})
 </script>

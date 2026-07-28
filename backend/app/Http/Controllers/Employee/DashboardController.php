@@ -4,183 +4,74 @@ namespace App\Http\Controllers\Employee;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
-use App\Models\Holiday;
-use App\Models\Leave;
-use App\Models\RetardAuthorization;
-use App\Models\UnjustifiedAbsence;
 use App\Models\User;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index(): JsonResponse
+    /**
+     * Récupère les données du tableau de bord de l'employé
+     * et évalue dynamiquement si le pointage est possible.
+     */
+    public function index(Request $request): JsonResponse
     {
-        try {
-            $employee = request()->user();
-            $today    = Carbon::today();
-            $now      = Carbon::now();
+        $user = $request->user();
+        $now = Carbon::now();
+        $today = $now->toDateString();
 
-            // Horaires configurés par l'admin
-            $admin = User::where('role', 'admin')->first();
-            if (!$admin) {
-                return response()->json(['message' => 'Aucun administrateur configuré.'], 500);
+        // 1. Récupération dynamique de la configuration entreprise (Admin)
+        $admin = User::where('role', 'admin')->first();
+
+        $openingStr = $admin?->official_opening_time ?? '08:00:00';
+        $closingStr = $admin?->official_closing_time ?? '20:00:00';
+
+        // 2. Ancrage des horaires sur la date du jour
+        $openingTime = Carbon::parse($today . ' ' . $openingStr);
+        $closingTime = Carbon::parse($today . ' ' . $closingStr);
+
+        // 3. Gestion des shifts de nuit (ex: 23:00 -> 06:00)
+        if ($closingTime->lessThanOrEqualTo($openingTime)) {
+            if ($now->lessThanOrEqualTo($closingTime)) {
+                $openingTime->subDay();
+            } else {
+                $closingTime->addDay();
             }
-
-            $opening = $admin->official_opening_time ?? '08:00';
-            $closing = $admin->official_closing_time ?? '20:00';
-            $openingTime = Carbon::createFromTimeString($opening);
-            $closingTime = Carbon::createFromTimeString($closing);
-
-            // Fenêtre de pointage : 1h avant ouverture → 3h avant fermeture
-            $startWindow = (clone $openingTime)->subHour();
-            $endWindow   = (clone $closingTime)->subHours(3);
-
-            // Si fermeture < ouverture (ex: 23:00 - 06:00), on ajoute un jour
-            if ($closingTime->lt($openingTime)) {
-                $endWindow->addDay();
-            }
-
-            $nowInWindow = $now->between($startWindow, $endWindow);
-
-            $todayAttendance = Attendance::where('user_id', $employee->id)
-                ->whereDate('date', $today)->first();
-
-            $leaveToday = Leave::where('user_id', $employee->id)
-                ->where('status', 'approved')
-                ->whereDate('start_date', '<=', $today)
-                ->whereDate('end_date', '>=', $today)
-                ->exists();
-
-            $canCheckIn = !$todayAttendance && !$leaveToday && $nowInWindow;
-
-            // Mois demandé (défaut mois courant)
-            $month = (int) request('month', $today->month);
-            $year  = (int) request('year', $today->year);
-            $firstOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth();
-            $endOfMonth   = $firstOfMonth->copy()->endOfMonth();
-
-            // Demandes en attente
-            $pendingLeaves = Leave::where('user_id', $employee->id)
-                ->where('status', 'pending')
-                ->orderByDesc('created_at')->take(5)->get()
-                ->map(fn($l) => [
-                    'id'          => $l->id,
-                    'type'        => 'leave',
-                    'date'        => $l->start_date . ' - ' . $l->end_date,
-                    'reason'      => $l->reason,
-                    'statusClass' => 'bg-yellow-100 text-yellow-800',
-                    'statusLabel' => 'En attente',
-                ]);
-
-            $pendingRetards = RetardAuthorization::where('user_id', $employee->id)
-                ->where('status', 'pending')
-                ->orderByDesc('created_at')->take(5)->get()
-                ->map(fn($r) => [
-                    'id'          => $r->id,
-                    'type'        => 'retard',
-                    'date'        => $r->date . ' à ' . $r->expected_arrival,
-                    'reason'      => $r->reason,
-                    'statusClass' => 'bg-yellow-100 text-yellow-800',
-                    'statusLabel' => 'En attente',
-                ]);
-
-            $pendingRequests = $pendingLeaves->concat($pendingRetards)->sortByDesc('created_at')->values();
-
-            // Derniers pointages (5)
-            $recentAttendances = Attendance::where('user_id', $employee->id)
-                ->orderByDesc('date')->take(5)->get()
-                ->map(function ($a) {
-                    switch ($a->status) {
-                        case 'on_time':    $cls = 'bg-green-100 text-green-800'; $lbl = 'À l\'heure'; break;
-                        case 'late':       $cls = 'bg-orange-100 text-orange-800'; $lbl = 'Retard'; break;
-                        case 'major_late': $cls = 'bg-red-100 text-red-800'; $lbl = 'Grand retard'; break;
-                        case 'authorized': $cls = 'bg-blue-100 text-blue-800'; $lbl = 'Autorisé'; break;
-                        default:           $cls = 'bg-gray-100 text-gray-800'; $lbl = 'Inconnu';
-                    }
-                    return [
-                        'id'            => $a->id,
-                        'date'          => $a->date,
-                        'check_in_time' => $a->check_in_time,
-                        'status'        => $a->status,
-                        'late_minutes'  => $a->late_minutes,
-                        'is_justified'  => $a->is_justified,
-                        'justification' => $a->justification,
-                        'statusClass'   => $cls,
-                        'statusLabel'   => $lbl,
-                    ];
-                });
-
-            // Résumé mensuel (mois sélectionné)
-            $attendancesThisMonth = Attendance::where('user_id', $employee->id)
-                ->whereBetween('date', [$firstOfMonth, $endOfMonth])->get();
-            $workedDays   = $attendancesThisMonth->count();
-            $presentDays  = $attendancesThisMonth->whereIn('status', ['on_time','late','major_late','authorized'])->count();
-            $lateCount    = $attendancesThisMonth->whereIn('status', ['late','major_late'])->count();
-            $lateMinutes  = $attendancesThisMonth->sum('late_minutes');
-            $absenceDays  = Leave::where('user_id', $employee->id)
-                ->where('status', 'approved')
-                ->where('type', 'absence')
-                ->whereBetween('start_date', [$firstOfMonth, $endOfMonth])->count();
-
-            // Événements calendrier
-            $calendarEvents = [];
-            foreach ($attendancesThisMonth as $att) {
-                $status = in_array($att->status, ['late','major_late']) ? 'late' : 'present';
-                $calendarEvents[] = ['date' => $att->date, 'status' => $status];
-            }
-            $leavesThisMonth = Leave::where('user_id', $employee->id)
-                ->where('status', 'approved')
-                ->where(function ($q) use ($firstOfMonth, $endOfMonth) {
-                    $q->whereBetween('start_date', [$firstOfMonth, $endOfMonth])
-                      ->orWhereBetween('end_date', [$firstOfMonth, $endOfMonth]);
-                })->get();
-            foreach ($leavesThisMonth as $leave) {
-                $start = max($leave->start_date, $firstOfMonth);
-                $end   = min($leave->end_date, $endOfMonth);
-                try {
-                    $period = CarbonPeriod::create($start, $end);
-                    foreach ($period as $date) {
-                        $calendarEvents[] = ['date' => $date->toDateString(), 'status' => 'leave'];
-                    }
-                } catch (\Exception $e) {}
-            }
-            $holidaysMonth = Holiday::whereBetween('date', [$firstOfMonth, $endOfMonth])->get();
-            foreach ($holidaysMonth as $holiday) {
-                $calendarEvents[] = ['date' => $holiday->date->toDateString(), 'status' => 'holiday'];
-            }
-
-            $hasPendingAbsences = UnjustifiedAbsence::where('user_id', $employee->id)
-                ->where('status', 'pending')->exists();
-
-            $upcomingHolidays = Holiday::where('date', '>=', $today)->orderBy('date')->take(5)->get()
-                ->map(fn($h) => ['id' => $h->id, 'date' => $h->date->toDateString(), 'description' => $h->description]);
-
-            return response()->json([
-                'today_attendance'   => $todayAttendance,
-                'can_check_in'       => $canCheckIn,
-                'leave_today'        => $leaveToday,
-                'pending_requests'   => $pendingRequests,
-                'recent_attendances' => $recentAttendances,
-                'monthly_summary'    => [
-                    'worked_days'  => $workedDays,
-                    'present_days' => $presentDays,
-                    'late_count'   => $lateCount,
-                    'late_minutes' => $lateMinutes,
-                    'absence_days' => $absenceDays,
-                ],
-                'calendar_events'    => $calendarEvents,
-                'has_pending_absences' => $hasPendingAbsences,
-                'upcoming_holidays'  => $upcomingHolidays,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Dashboard employé - erreur', [
-                'user'    => request()->user()?->id,
-                'message' => $e->getMessage(),
-            ]);
-            return response()->json(['message' => 'Erreur interne du serveur.'], 500);
         }
+
+        // 4. Fenêtre de pointage : -1h avant ouverture -> -3h avant fermeture
+        $startWindow = (clone $openingTime)->subHour();
+        $endWindow   = (clone $closingTime)->subHours(3);
+
+        // 5. Vérification si déjà pointé aujourd'hui
+        $alreadyCheckedIn = Attendance::where('user_id', $user->id)
+            ->whereDate('check_in_time', $today)
+            ->exists();
+
+        // 6. Calcul de l'autorisation de pointage
+        $canCheckIn = !$alreadyCheckedIn && $now->between($startWindow, $endWindow);
+
+        // 7. Dernier pointage de l'utilisateur
+        $latestAttendance = Attendance::where('user_id', $user->id)
+            ->latest('check_in_time')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'can_check_in' => $canCheckIn,
+            'already_checked_in' => $alreadyCheckedIn,
+            'official_opening_time' => $openingStr,
+            'official_closing_time' => $closingStr,
+            'window_start' => $startWindow->toIso8601String(),
+            'window_end' => $endWindow->toIso8601String(),
+            'server_now' => $now->toIso8601String(),
+            'latest_attendance' => $latestAttendance,
+            'company_location' => [
+                'latitude' => $admin?->company_latitude,
+                'longitude' => $admin?->company_longitude,
+                'geofence_radius' => $admin?->geofence_radius_meters ?? 100,
+            ],
+        ]);
     }
 }

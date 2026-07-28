@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -20,7 +20,7 @@ class User extends Authenticatable
         'company_longitude',
         'geofence_radius_meters',
         'official_opening_time',
-        'official_closing_time',   // ← ajouté
+        'official_closing_time',
         'base_salary',
         'matricule',
         'position',
