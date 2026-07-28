@@ -2,34 +2,50 @@
 
 namespace App\Services;
 
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Cloudinary\Cloudinary;
 use Illuminate\Http\UploadedFile;
 use Exception;
-use Illuminate\Support\Facades\Log;
 
 class CloudinaryService
 {
-    public function upload(UploadedFile $file, string $folder = 'sirh'): string
+    protected Cloudinary $cloudinary;
+
+    public function __construct()
     {
-        $url = config('cloudinary.cloud_url') ?: env('CLOUDINARY_URL');
-        if (!$url) {
-            throw new Exception('Cloudinary n\'est pas configuré. Ajoutez CLOUDINARY_URL dans les variables d\'environnement.');
+        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        $apiKey = env('CLOUDINARY_KEY');
+        $apiSecret = env('CLOUDINARY_SECRET');
+
+        if (!$cloudName || !$apiKey || !$apiSecret) {
+            throw new Exception('Configuration Cloudinary incomplète. Vérifiez CLOUDINARY_CLOUD_NAME, CLOUDINARY_KEY et CLOUDINARY_SECRET.');
         }
 
+        $this->cloudinary = new Cloudinary([
+            'cloud' => [
+                'cloud_name' => $cloudName,
+                'api_key'    => $apiKey,
+                'api_secret' => $apiSecret,
+            ],
+            'url' => [
+                'secure' => true,
+            ],
+        ]);
+    }
+
+    public function upload(UploadedFile $file, string $folder = 'sirh'): string
+    {
         try {
-            $result = Cloudinary::upload($file->getRealPath(), [
+            $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
                 'folder' => $folder,
-                'secure'  => true,
             ]);
         } catch (\Exception $e) {
-            Log::error('Cloudinary upload error', ['message' => $e->getMessage()]);
             throw new Exception('Erreur Cloudinary : ' . $e->getMessage(), 0, $e);
         }
 
-        if (!$result || !method_exists($result, 'getSecurePath')) {
-            throw new Exception('Réponse Cloudinary invalide.');
+        if (!isset($result['secure_url'])) {
+            throw new Exception('Réponse Cloudinary invalide : URL sécurisée manquante.');
         }
 
-        return $result->getSecurePath();
+        return $result['secure_url'];
     }
 }
