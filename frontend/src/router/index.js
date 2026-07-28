@@ -6,6 +6,9 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
+  // Nouvelles routes pour la réinitialisation de mot de passe (publiques)
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
+  { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
   {
     path: '/employee/explain-absence',
     name: 'ExplainAbsence',
