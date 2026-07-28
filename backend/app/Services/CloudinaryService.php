@@ -34,10 +34,14 @@ class CloudinaryService
 
     public function upload(UploadedFile $file, string $folder = 'sirh'): string
     {
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $extension = strtolower($file->getClientOriginalExtension());
+        $resourceType = in_array($extension, $imageExtensions) ? 'image' : 'raw';
+
         try {
             $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
                 'folder'          => $folder,
-                'resource_type'   => 'auto',
+                'resource_type'   => $resourceType,
                 'use_filename'    => true,
                 'unique_filename' => true,
             ]);
