@@ -79,7 +79,6 @@ async function fetchData() {
   if (filters.value.date) params.date = filters.value.date
   if (filters.value.search) params.search = filters.value.search
   if (filters.value.status) params.status = filters.value.status
-
   const { data } = await api.get('/admin/attendances', { params })
   attendances.value = data.data || data
 }

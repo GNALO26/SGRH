@@ -19,13 +19,13 @@ class LeaveController extends Controller
     {
         $leaves = Leave::with('user')->latest()->get()->map(function ($leave) {
             return [
-                'id' => $leave->id,
-                'user' => $leave->user ? ['id' => $leave->user->id, 'name' => $leave->user->name] : null,
-                'type' => $leave->type,
+                'id'         => $leave->id,
+                'user'       => $leave->user ? ['id' => $leave->user->id, 'name' => $leave->user->name] : null,
+                'type'       => $leave->type,
                 'start_date' => $leave->start_date,
-                'end_date' => $leave->end_date,
-                'reason' => $leave->reason,
-                'status' => $leave->status,
+                'end_date'   => $leave->end_date,
+                'reason'     => $leave->reason,
+                'status'     => $leave->status,
             ];
         });
         return response()->json($leaves);
@@ -33,27 +33,27 @@ class LeaveController extends Controller
 
     public function update(Request $request, Leave $leave)
     {
-        $request->validate([
-            'status' => 'required|in:approved,rejected',
-        ]);
+        $request->validate(['status' => 'required|in:approved,rejected']);
 
         $leave->update([
             'status'      => $request->status,
             'approved_by' => $request->user()->id,
         ]);
 
-        $employee = $leave->user;
+        $employee   = $leave->user;
         $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
 
-        // Log protégé
         try {
-            $logMessage = "Congé {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$leave->start_date} - {$leave->end_date})";
-            $this->activityService->log($request->user(), "congé_{$request->status}", $logMessage, 'fas fa-calendar-check');
+            $this->activityService->log(
+                $request->user(),
+                "congé_{$request->status}",
+                "Congé {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$leave->start_date} - {$leave->end_date})",
+                'fas fa-calendar-check'
+            );
         } catch (\Exception $e) {
             report($e);
         }
 
-        // Notification protégée
         if ($employee) {
             try {
                 $this->notificationService->createForUser(

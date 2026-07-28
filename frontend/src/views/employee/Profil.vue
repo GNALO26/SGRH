@@ -18,9 +18,10 @@
 
         <div class="mb-6">
           <label class="block text-sm font-medium mb-2 dark:text-white">Changer la photo de profil</label>
-          <input type="file" @change="handleFile" accept="image/*" :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', fieldErrors.avatar ? 'border-red-500' : '']" />
+          <input type="file" @change="handleFile" accept="image/*" :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', fieldErrors.avatar ? 'border-red-500 ring-1 ring-red-500' : '']" />
           <p v-if="fieldErrors.avatar" class="text-red-600 text-xs mt-1">{{ fieldErrors.avatar[0] }}</p>
           <button @click="uploadAvatar" :disabled="uploading" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
+            <i v-if="uploading" class="fas fa-spinner fa-spin"></i>
             {{ uploading ? 'Envoi...' : 'Mettre à jour' }}
           </button>
         </div>

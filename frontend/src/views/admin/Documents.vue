@@ -91,25 +91,13 @@ const submitting = ref(false)
 const form = ref({ title: '', type: 'contract', employee_id: null, file: null })
 const fieldErrors = ref({})
 
-async function fetchDocuments() {
-  const { data } = await api.get('/admin/documents')
-  documents.value = data
-}
+async function fetchDocuments() { const { data } = await api.get('/admin/documents'); documents.value = data }
+async function fetchEmployees() { const { data } = await api.get('/admin/employees'); employees.value = data }
 
-async function fetchEmployees() {
-  const { data } = await api.get('/admin/employees')
-  employees.value = data
-}
-
-function handleFile(e) {
-  form.value.file = e.target.files[0]
-}
+function handleFile(e) { form.value.file = e.target.files[0] }
 
 async function upload() {
-  if (!form.value.file) {
-    Swal.fire('Erreur', 'Veuillez sélectionner un fichier.', 'warning')
-    return
-  }
+  if (!form.value.file) { Swal.fire('Erreur', 'Veuillez sélectionner un fichier.', 'warning'); return }
   submitting.value = true
   fieldErrors.value = {}
   try {
@@ -118,20 +106,15 @@ async function upload() {
     payload.append('file', form.value.file)
     payload.append('type', form.value.type)
     if (form.value.employee_id) payload.append('employee_id', form.value.employee_id)
-
     await api.post('/admin/documents', payload)
     Swal.fire('Succès', 'Document ajouté', 'success')
     showForm.value = false
     form.value = { title: '', type: 'contract', employee_id: null, file: null }
     fetchDocuments()
   } catch (e) {
-    if (e.response?.status === 422 && e.response.data?.fieldErrors) {
-      fieldErrors.value = e.response.data.fieldErrors
-    }
+    if (e.response?.status === 422 && e.response.data?.fieldErrors) fieldErrors.value = e.response.data.fieldErrors
     Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
-  } finally {
-    submitting.value = false
-  }
+  } finally { submitting.value = false }
 }
 
 async function deleteDoc(id) {
@@ -143,8 +126,5 @@ async function deleteDoc(id) {
   }
 }
 
-onMounted(() => {
-  fetchDocuments()
-  fetchEmployees()
-})
+onMounted(() => { fetchDocuments(); fetchEmployees() })
 </script>

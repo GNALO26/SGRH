@@ -1,4 +1,3 @@
-<!-- src/views/employee/Pointage.vue -->
 <template>
   <div class="space-y-6">
     <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Pointage du jour</h1>
@@ -91,7 +90,6 @@ async function fetchStatus() {
     canCheckIn.value = data.canCheckIn
   } catch (e) {
     console.error(e)
-    // Garder l'état précédent en cas d'erreur réseau
   }
 }
 

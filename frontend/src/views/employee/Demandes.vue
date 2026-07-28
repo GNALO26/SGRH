@@ -6,6 +6,7 @@
       <button @click="activeTab = 'retard'" :class="['px-4 py-2 font-medium', activeTab === 'retard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 dark:text-gray-400']"><i class="fas fa-clock mr-1"></i>Autorisations de retard</button>
     </div>
 
+    <!-- Congés & Absences -->
     <div v-if="activeTab === 'leaves'" class="space-y-6">
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
         <h2 class="text-lg font-semibold mb-4 dark:text-white">Nouvelle demande de congé / absence</h2>
@@ -28,7 +29,10 @@
             <textarea v-model="leaveForm.reason" rows="3" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', leaveErrors.reason ? 'border-red-500 ring-1 ring-red-500' : '']"></textarea>
             <p v-if="leaveErrors.reason" class="text-red-600 text-xs mt-1">{{ leaveErrors.reason[0] }}</p>
           </div>
-          <button type="submit" :disabled="submittingLeave" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">{{ submittingLeave ? 'Envoi...' : 'Envoyer la demande' }}</button>
+          <button type="submit" :disabled="submittingLeave" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+            <i v-if="submittingLeave" class="fas fa-spinner fa-spin"></i>
+            {{ submittingLeave ? 'Envoi...' : 'Envoyer la demande' }}
+          </button>
         </form>
       </div>
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
@@ -38,6 +42,7 @@
       </div>
     </div>
 
+    <!-- Autorisations de retard -->
     <div v-if="activeTab === 'retard'" class="space-y-6">
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
         <h2 class="text-lg font-semibold mb-4 dark:text-white">Demande d'autorisation de retard</h2>
@@ -57,7 +62,10 @@
             <textarea v-model="retardForm.reason" rows="3" required :class="['w-full border rounded p-2 dark:bg-gray-700 dark:text-white', retardErrors.reason ? 'border-red-500 ring-1 ring-red-500' : '']"></textarea>
             <p v-if="retardErrors.reason" class="text-red-600 text-xs mt-1">{{ retardErrors.reason[0] }}</p>
           </div>
-          <button type="submit" :disabled="submittingRetard" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">{{ submittingRetard ? 'Envoi...' : 'Envoyer' }}</button>
+          <button type="submit" :disabled="submittingRetard" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+            <i v-if="submittingRetard" class="fas fa-spinner fa-spin"></i>
+            {{ submittingRetard ? 'Envoi...' : 'Envoyer' }}
+          </button>
         </form>
       </div>
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
@@ -74,9 +82,15 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import api from '@/api/axios'
 import Swal from 'sweetalert2'
 
-const activeTab = ref('leaves'), leaves = ref([]), retardAuths = ref([])
-const leaveForm = ref({ start_date: '', end_date: '', type: 'absence', reason: '' }), retardForm = ref({ date: '', expected_arrival: '', reason: '' })
-const leaveErrors = ref({}), retardErrors = ref({}), submittingLeave = ref(false), submittingRetard = ref(false)
+const activeTab = ref('leaves')
+const leaves = ref([])
+const retardAuths = ref([])
+const leaveForm = ref({ start_date: '', end_date: '', type: 'absence', reason: '' })
+const retardForm = ref({ date: '', expected_arrival: '', reason: '' })
+const leaveErrors = ref({})
+const retardErrors = ref({})
+const submittingLeave = ref(false)
+const submittingRetard = ref(false)
 let pollingInterval = null
 
 function statusClass(s) { return { pending: 'bg-yellow-100 text-yellow-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700' }[s] || '' }
@@ -103,7 +117,9 @@ onUnmounted(() => clearInterval(pollingInterval))
 watch(activeTab, () => { if (activeTab.value === 'leaves') fetchLeaves(); else fetchRetards() })
 
 async function submitLeave() {
-  submittingLeave.value = true; leaveErrors.value = {}
+  if (submittingLeave.value) return
+  submittingLeave.value = true
+  leaveErrors.value = {}
   try {
     await api.post('/employee/leaves', leaveForm.value)
     Swal.fire('Succès', 'Demande envoyée.', 'success'); leaveForm.value = { start_date: '', end_date: '', type: 'absence', reason: '' }; fetchLeaves()
@@ -113,7 +129,9 @@ async function submitLeave() {
   } finally { submittingLeave.value = false }
 }
 async function submitRetard() {
-  submittingRetard.value = true; retardErrors.value = {}
+  if (submittingRetard.value) return
+  submittingRetard.value = true
+  retardErrors.value = {}
   try {
     await api.post('/employee/retard-authorizations', retardForm.value)
     Swal.fire('Succès', 'Demande envoyée.', 'success'); retardForm.value = { date: '', expected_arrival: '', reason: '' }; fetchRetards()

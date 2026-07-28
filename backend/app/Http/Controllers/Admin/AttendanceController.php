@@ -22,7 +22,6 @@ class AttendanceController extends Controller
             ->orderBy('check_in_time', 'desc');
 
         $attendances = $query->paginate(50);
-
         return response()->json($attendances);
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Attendance;
 use App\Models\Leave;
+use App\Models\UnjustifiedAbsence;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +17,7 @@ class DashboardController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $today = Carbon::today();
+            $today        = Carbon::today();
             $firstOfMonth = Carbon::today()->firstOfMonth();
 
             $totalEmployees = User::where('role', 'employee')->count();
@@ -29,14 +30,16 @@ class DashboardController extends Controller
             $monthlyLateMinutes = Attendance::whereBetween('date', [$firstOfMonth, $today])
                 ->sum('late_minutes');
 
+            $pendingAbsencesCount = UnjustifiedAbsence::where('status', 'pending')->count();
+
             // Activités récentes
             $activities = ActivityLog::with('user')->latest()->take(10)
                 ->get()->map(function ($log) {
                     return [
                         'id'     => $log->id,
-                        'user'   => $log->user->name ?? 'Système',
+                        'user'   => $log->user?->name ?? 'Système',
                         'action' => $log->description,
-                        'icon'   => $log->icon,
+                        'icon'   => $log->icon ?? 'fas fa-info-circle',
                         'time'   => $log->created_at->diffForHumans(),
                     ];
                 });
@@ -49,10 +52,10 @@ class DashboardController extends Controller
                 ->get()->map(function ($leave) {
                     return [
                         'id'         => $leave->id,
-                        'employee'   => $leave->user->name ?? 'Employé supprimé',
+                        'employee'   => $leave->user?->name ?? 'Employé supprimé',
                         'type'       => $leave->type === 'vacation' ? 'Congé' : 'Absence',
-                        'start_date' => $leave->start_date,
-                        'end_date'   => $leave->end_date,
+                        'start_date' => $leave->start_date->toDateString(),
+                        'end_date'   => $leave->end_date->toDateString(),
                     ];
                 });
 
@@ -72,11 +75,12 @@ class DashboardController extends Controller
 
             return response()->json([
                 'stats' => [
-                    'total_employees'       => $totalEmployees,
-                    'present_today'         => $presentToday,
-                    'late_today'            => $lateToday,
-                    'approved_leaves_today' => $approvedLeavesToday,
-                    'monthly_late_minutes'  => $monthlyLateMinutes,
+                    'total_employees'        => $totalEmployees,
+                    'present_today'          => $presentToday,
+                    'late_today'             => $lateToday,
+                    'approved_leaves_today'  => $approvedLeavesToday,
+                    'monthly_late_minutes'   => $monthlyLateMinutes,
+                    'pending_absences_count' => $pendingAbsencesCount,
                 ],
                 'activities'          => $activities,
                 'upcoming_leaves'     => $upcomingLeaves,

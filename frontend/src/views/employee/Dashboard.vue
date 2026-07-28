@@ -1,4 +1,3 @@
-<!-- src/views/employee/Dashboard.vue -->
 <template>
   <div class="space-y-6">
     <!-- Loading -->
@@ -60,7 +59,7 @@
           </div>
         </div>
 
-        <!-- Colonne centrale : Calendrier + Citation + Fériés -->
+        <!-- Colonne centrale -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
           <h2 class="text-lg font-semibold mb-4 dark:text-white"><i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier {{ currentMonth }}</h2>
           <CalendarView :year="currentYear" :month="currentMonthNum" :events="calendarEvents" />
@@ -193,7 +192,6 @@ async function fetchDashboard() {
   } catch (e) {
     console.error('Erreur chargement dashboard employé', e)
     error.value = true
-    // Ne pas réinitialiser canCheckIn pour ne pas bloquer le bouton en cas d'erreur réseau temporaire
   } finally {
     loading.value = false
   }

@@ -6,7 +6,6 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
-
   {
     path: '/employee/explain-absence',
     name: 'ExplainAbsence',
@@ -29,7 +28,7 @@ const routes = [
       { path: 'profil', name: 'Profil', component: () => import('@/views/employee/Profil.vue') },
       { path: 'parametres', name: 'Parametres', component: () => import('@/views/employee/Parametres.vue') },
       { path: 'unjustified-absences', name: 'UnjustifiedAbsences', component: () => import('@/views/employee/UnjustifiedAbsences.vue') },
-    ],
+    ]
   },
   {
     path: '/admin',
@@ -49,9 +48,7 @@ const routes = [
       { path: 'parametres', name: 'Settings', component: () => import('@/views/admin/Settings.vue') },
       { path: 'utilisateurs', name: 'Users', component: () => import('@/views/admin/Users.vue') },
       { path: 'logs', name: 'Logs', component: () => import('@/views/admin/Logs.vue') },
-      { path: 'profil', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue') },
-      { path: 'notifications', name: 'AdminNotifications', component: () => import('@/views/admin/NotificationsAdmin.vue') }, 
-    ],
+    ]
   },
   { path: '/', redirect: '/login' },
 ]
@@ -61,16 +58,13 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, from) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
-
-  // Routes nécessitant une authentification
   if (to.matched.some(r => r.meta.requiresAuth)) {
-    if (!auth.token) {
-      return '/login'
+    if (!auth.token) return '/login'
+    if (to.meta.role && auth.user?.role !== to.meta.role) {
+      return auth.user?.role === 'admin' ? '/admin' : '/employee'
     }
-
-    // Charger l'utilisateur s'il n'est pas déjà dans le store
     if (!auth.user) {
       try {
         await auth.fetchUser()
@@ -79,32 +73,13 @@ router.beforeEach(async (to, from) => {
         return '/login'
       }
     }
-
-    // Vérification du rôle
-    if (to.meta.role && auth.user?.role !== to.meta.role) {
-      return auth.user?.role === 'admin' ? '/admin' : '/employee'
-    }
-
-    // Redirection absences non justifiées (employé uniquement)
-    if (
-      auth.user?.role === 'employee' &&
-      auth.requiresExplanation &&
-      to.name !== 'ExplainAbsence' &&
-      to.name !== 'Login'
-    ) {
+    if (auth.user?.role === 'employee' && auth.requiresExplanation && to.name !== 'ExplainAbsence') {
       return '/employee/explain-absence'
     }
-
     return true
+  } else if (to.matched.some(r => r.meta.guest) && auth.token) {
+    return auth.user?.role === 'admin' ? '/admin' : '/employee'
   }
-
-  // Routes invité (login) : si déjà connecté, rediriger vers le dashboard
-  if (to.matched.some(r => r.meta.guest) && auth.token) {
-    if (auth.user?.role === 'admin') return '/admin'
-    if (auth.user?.role === 'employee') return '/employee'
-    return true
-  }
-
   return true
 })
 

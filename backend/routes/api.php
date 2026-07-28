@@ -70,7 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/attendance', [AttendanceController::class, 'store']);
         Route::get('/attendance/today', [AttendanceController::class, 'today']);
         Route::get('/attendance/history', [AttendanceController::class, 'history']);
-        Route::get('/attendance/export', [AttendanceController::class, 'export']); // PDF uniquement
+        Route::get('/attendance/export', [AttendanceController::class, 'export']);
         Route::apiResource('leaves', LeaveRequestController::class)->only(['index', 'store', 'destroy']);
         Route::apiResource('retard-authorizations', RetardAuthorizationController::class)->only(['index', 'store', 'destroy']);
         Route::get('/documents', [EmployeeDocumentController::class, 'index']);
