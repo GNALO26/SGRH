@@ -9,14 +9,24 @@
         </div>
         <!-- Contenu -->
         <div class="flex-1 p-2 overflow-hidden">
-          <!-- PDF : affiché dans un iframe -->
-          <iframe v-if="isPDF" :src="url" class="w-full h-full rounded" frameborder="0"></iframe>
-          <!-- Images : affichées directement -->
-          <img v-else-if="isImage" :src="url" class="w-full h-full object-contain" alt="Document" />
-          <!-- Autres types : message + lien externe -->
+          <!-- PDF : tenté dans un iframe, avec fallback -->
+          <template v-if="isPDF">
+            <iframe v-if="!iframeError" :src="url" class="w-full h-full rounded" frameborder="0" @error="iframeError = true"></iframe>
+            <div v-else class="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
+              <i class="fas fa-file-pdf text-6xl mb-4"></i>
+              <p>Le PDF ne peut pas être affiché ici.</p>
+              <a :href="url" target="_blank" class="mt-2 text-blue-600 hover:underline">
+                <i class="fas fa-external-link-alt mr-1"></i> Ouvrir dans un nouvel onglet
+              </a>
+            </div>
+          </template>
+          <!-- Images -->
+          <img v-else-if="isImage" :src="url" class="w-full h-full object-contain" alt="Document" @error="imageError = true" />
+          <div v-if="imageError" class="text-center text-red-500 mt-2">L'image n'a pas pu être chargée.</div>
+          <!-- Autres types -->
           <div v-else class="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
             <i class="fas fa-file text-6xl mb-4"></i>
-            <p>Ce type de fichier ne peut pas être prévisualisé.</p>
+            <p>Aperçu non disponible pour ce type de fichier.</p>
             <a :href="url" target="_blank" class="mt-2 text-blue-600 hover:underline">
               <i class="fas fa-external-link-alt mr-1"></i> Ouvrir dans un nouvel onglet
             </a>
@@ -28,7 +38,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   visible: Boolean,
@@ -40,7 +50,12 @@ const emit = defineEmits(['close'])
 const isPDF = computed(() => props.url?.toLowerCase().endsWith('.pdf'))
 const isImage = computed(() => /\.(jpe?g|png|gif|webp|svg)$/i.test(props.url))
 
+const iframeError = ref(false)
+const imageError = ref(false)
+
 function close() {
+  iframeError.value = false
+  imageError.value = false
   emit('close')
 }
 </script>
