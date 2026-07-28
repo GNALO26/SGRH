@@ -59,13 +59,12 @@
           </div>
         </div>
 
-        <!-- Colonne centrale : calendrier + citation -->
+        <!-- Colonne centrale -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col">
           <h2 class="text-lg font-semibold mb-4 dark:text-white"><i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier {{ currentMonth }}</h2>
           <CalendarView :year="currentYear" :month="currentMonthNum" :events="calendarEvents" />
-
-          <!-- Bloc citation / jours fériés remonté avec une marge fixe -->
-          <div class="mt-6 space-y-3">
+          <!-- Espacement augmenté pour descendre la citation -->
+          <div class="mt-8 space-y-3">
             <DailyQuote />
             <div v-if="upcomingHolidays.length" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 text-sm">
               <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
@@ -112,11 +111,7 @@
                   <tr v-for="att in recentAttendances" :key="att.id" class="border-b dark:border-gray-700">
                     <td class="dark:text-white">{{ att.date }}</td>
                     <td class="dark:text-white">{{ att.check_in_time }}</td>
-                    <td>
-                      <span class="px-2 py-1 rounded-full text-xs" :class="pointageStatusClass(att.status)">
-                        {{ att.statusLabel }}
-                      </span>
-                    </td>
+                    <td><span :class="att.statusClass">{{ att.statusLabel }}</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -167,33 +162,12 @@ const error = ref(false)
 
 const formattedDate = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-// Pastilles des derniers pointages avec mode sombre
-function pointageStatusClass(status) {
-  switch (status) {
-    case 'on_time':
-      return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-    case 'late':
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
-    case 'major_late':
-      return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-    case 'authorized':
-      return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-    default:
-      return 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
-  }
-}
-
-// Statut du jour
 const statusClass = computed(() => {
-  if (!todayAttendance.value) return 'bg-gray-400 dark:bg-gray-600'
-  switch (todayAttendance.value.status) {
-    case 'on_time': return 'bg-green-500 dark:bg-green-700'
-    case 'late': case 'major_late': return 'bg-orange-500 dark:bg-orange-700'
-    case 'authorized': return 'bg-blue-500 dark:bg-blue-700'
-    default: return 'bg-gray-500 dark:bg-gray-700'
-  }
+  if (!todayAttendance.value) return 'bg-gray-400'
+  if (todayAttendance.value.status === 'on_time') return 'bg-green-500'
+  if (['late','major_late'].includes(todayAttendance.value.status)) return 'bg-orange-500'
+  return 'bg-blue-500'
 })
-
 const statusLabel = computed(() => {
   if (leaveToday.value) return 'Absence autorisée'
   if (!todayAttendance.value) return 'Non pointé'
