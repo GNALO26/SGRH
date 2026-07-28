@@ -59,13 +59,41 @@
           </div>
         </div>
 
-        <!-- Colonne centrale : calendrier + citation -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col">
-          <h2 class="text-lg font-semibold mb-4 dark:text-white"><i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier {{ currentMonth }}</h2>
-          <CalendarView :year="currentYear" :month="currentMonthNum" :events="calendarEvents" />
+        <!-- Colonne centrale : calendrier + navigation -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col h-full">
+          <!-- Titre + navigation mois -->
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold dark:text-white">
+              <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier
+            </h2>
+            <div class="flex items-center space-x-3">
+              <button
+                @click="prevMonth"
+                class="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                aria-label="Mois précédent"
+              >
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <span class="text-sm font-medium dark:text-white min-w-[100px] text-center">
+                {{ currentMonthLabel }}
+              </span>
+              <button
+                @click="nextMonth"
+                class="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                aria-label="Mois suivant"
+              >
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
 
-          <!-- Bloc citation / jours fériés remonté avec une marge fixe -->
-          <div class="mt-6 space-y-3">
+          <!-- Le calendrier prend tout l'espace disponible -->
+          <div class="flex-1">
+            <CalendarView :year="currentYear" :month="currentMonthNum" :events="calendarEvents" />
+          </div>
+
+          <!-- Bloc citation + jours fériés poussé en bas avec mt-auto -->
+          <div class="mt-4 space-y-3">
             <DailyQuote />
             <div v-if="upcomingHolidays.length" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 text-sm">
               <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
@@ -113,6 +141,7 @@
                     <td class="dark:text-white">{{ att.date }}</td>
                     <td class="dark:text-white">{{ att.check_in_time }}</td>
                     <td>
+                      <!-- Pas de dark:text-white ici pour ne pas écraser la couleur de la pastille -->
                       <span class="px-2 py-1 rounded-full text-xs" :class="pointageStatusClass(att.status)">
                         {{ att.statusLabel }}
                       </span>
@@ -151,6 +180,7 @@ import DailyQuote from '@/components/employee/DailyQuote.vue'
 const auth = useAuthStore()
 const user = computed(() => auth.user)
 
+// État
 const todayAttendance = ref(null)
 const canCheckIn = ref(false)
 const leaveToday = ref(false)
@@ -159,15 +189,18 @@ const recentAttendances = ref([])
 const monthlySummary = ref({ worked_days: 0, present_days: 0, late_count: 0, late_minutes: 0, absence_days: 0 })
 const calendarEvents = ref([])
 const upcomingHolidays = ref([])
-const currentMonth = new Date().toLocaleString('fr-FR', { month: 'long' })
-const currentYear = new Date().getFullYear()
-const currentMonthNum = new Date().getMonth() + 1
 const loading = ref(true)
 const error = ref(false)
 
-const formattedDate = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+// Gestion du mois calendrier (réactif)
+const currentDate = ref(new Date())
+const currentMonthNum = computed(() => currentDate.value.getMonth() + 1)
+const currentYear = computed(() => currentDate.value.getFullYear())
+const currentMonthLabel = computed(() => currentDate.value.toLocaleString('fr-FR', { month: 'long', year: 'numeric' }))
 
-// Pastilles des derniers pointages avec mode sombre
+const formattedDate = computed(() => new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
+
+// Pastilles des derniers pointages (avec couleurs adaptées au mode sombre)
 function pointageStatusClass(status) {
   switch (status) {
     case 'on_time':
@@ -179,7 +212,7 @@ function pointageStatusClass(status) {
     case 'authorized':
       return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
     default:
-      return 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
+      return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
   }
 }
 
@@ -203,11 +236,31 @@ const statusLabel = computed(() => {
   return 'Présent'
 })
 
-async function fetchDashboard() {
+// Navigation mois
+function prevMonth() {
+  const newDate = new Date(currentDate.value)
+  newDate.setMonth(newDate.getMonth() - 1)
+  currentDate.value = newDate
+  fetchDashboard(currentMonthNum.value, currentYear.value)
+}
+
+function nextMonth() {
+  const newDate = new Date(currentDate.value)
+  newDate.setMonth(newDate.getMonth() + 1)
+  currentDate.value = newDate
+  fetchDashboard(currentMonthNum.value, currentYear.value)
+}
+
+// Chargement du dashboard (avec mois/année en paramètres)
+async function fetchDashboard(month = null, year = null) {
   loading.value = true
   error.value = false
   try {
-    const { data } = await api.get('/employee/dashboard')
+    const params = {}
+    if (month) params.month = month
+    if (year) params.year = year
+
+    const { data } = await api.get('/employee/dashboard', { params })
     todayAttendance.value = data.today_attendance
     canCheckIn.value = data.can_check_in
     leaveToday.value = data.leave_today
@@ -225,8 +278,10 @@ async function fetchDashboard() {
 }
 
 function refreshData() {
-  fetchDashboard()
+  fetchDashboard(currentMonthNum.value, currentYear.value)
 }
 
-onMounted(fetchDashboard)
+onMounted(() => {
+  fetchDashboard(currentMonthNum.value, currentYear.value)
+})
 </script>
