@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\{
     DashboardController,
@@ -31,6 +32,9 @@ use App\Http\Controllers\Employee\{
 
 // Authentification publique
 Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
+// Réinitialisation de mot de passe (publique)
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetCode']);
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 
 // Routes protégées par token Sanctum
 Route::middleware('auth:sanctum')->group(function () {
