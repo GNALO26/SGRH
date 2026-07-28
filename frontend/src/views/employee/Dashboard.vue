@@ -1,330 +1,351 @@
-<template>
-  <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-6">
-    <!-- En-tête -->
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Espace Pointage</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Gérez votre présence quotidienne en temps réel</p>
-      </div>
-      <div className="flex items-center space-x-2 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-lg font-medium">
-        <i className="fas font-clock"></i>
-        <span>Horaire : {{ officialOpeningTime?.slice(0, 5) }} - {{ officialClosingTime?.slice(0, 5) }}</span>
-      </div>
-    </div>
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from '../../api/axios'; // Votre instance Axios configurée avec Sanctum
+import { 
+  MapPin, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  XCircle, 
+  RefreshCw, 
+  ShieldAlert, 
+  Building 
+} from 'lucide-react';
 
-    <!-- Chargement -->
-    <div v-if="loading" className="flex items-center justify-center py-12">
-      <i className="fas font-circle-notch fa-spin text-3xl text-blue-600"></i>
-      <span className="ml-3 text-gray-600 font-medium">Chargement du tableau de bord...</span>
-    </div>
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [dashboardData, setDashboardData] = useState(null);
+  
+  // Géolocalisation de l'utilisateur
+  const [userCoords, setUserCoords] = useState({ latitude: null, longitude: null });
+  const [geoError, setGeoError] = useState(null);
+  const [distanceToCompany, setDistanceToCompany] = useState(null);
+  const [isWithinFence, setIsWithinFence] = useState(false);
 
-    <template v-else>
-      <!-- Cartes d'information principale -->
+  // Formulaire de pointage
+  const [justification, setJustification] = useState('');
+  const [needJustification, setNeedJustification] = useState(false);
+  const [feedback, setFeedback] = useState({ type: null, message: '' });
+
+  // 1. Calcul de la distance Haversine en mètres
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371e3; // Rayon de la Terre en mètres
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return Math.round(R * c);
+  };
+
+  // 2. Capture de la position GPS de l'employé
+  const fetchLocation = useCallback(() => {
+    setGeoError(null);
+    if (!navigator.geolocation) {
+      setGeoError("La géolocalisation n'est pas supportée par votre navigateur.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserCoords({ latitude, longitude });
+
+        // Mise à jour de la vérification de périmètre
+        if (dashboardData?.company_location) {
+          const { latitude: compLat, longitude: compLng, geofence_radius } = dashboardData.company_location;
+          if (compLat && compLng) {
+            const dist = calculateDistance(latitude, longitude, compLat, compLng);
+            setDistanceToCompany(dist);
+            setIsWithinFence(dist <= (geofence_radius || 100));
+          }
+        }
+      },
+      (error) => {
+        let msg = "Erreur de géolocalisation.";
+        if (error.code === error.PERMISSION_DENIED) {
+          msg = "Vous devez autoriser l'accès à la localisation pour pouvoir pointer.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          msg = "Signal GPS indisponible.";
+        } else if (error.code === error.TIMEOUT) {
+          msg = "Délai d'attente dépassé pour obtenir votre position.";
+        }
+        setGeoError(msg);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, [dashboardData?.company_location]);
+
+  // 3. Charger les données du tableau de bord depuis l'API Laravel
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/employee/dashboard');
+      if (response.data.success) {
+        setDashboardData(response.data);
+      }
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: err.response?.data?.message || "Impossible de charger les données du tableau de bord.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  useEffect(() => {
+    if (dashboardData) {
+      fetchLocation();
+    }
+  }, [dashboardData, fetchLocation]);
+
+  // 4. Soumission du pointage
+  const handleCheckIn = async (e) => {
+    e.preventDefault();
+    setFeedback({ type: null, message: '' });
+
+    if (!userCoords.latitude || !userCoords.longitude) {
+      setFeedback({ type: 'error', message: 'Position GPS introuvable. Veuillez activer le GPS.' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await axios.post('/api/attendances/check-in', {
+        latitude: userCoords.latitude,
+        longitude: userCoords.longitude,
+        justification: justification.trim() || null,
+      });
+
+      setFeedback({
+        type: 'success',
+        message: response.data.message || 'Pointage enregistré avec succès !',
+      });
+      setJustification('');
+      setNeedJustification(false);
+      
+      // Recharger le tableau de bord pour rafraîchir l'état
+      await loadDashboardData();
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Erreur lors du pointage.';
+      setFeedback({ type: 'error', message: errorMsg });
+
+      // Si le serveur requiert une justification pour un grand retard
+      if (err.response?.data?.require_justification) {
+        setNeedJustification(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
+        <span className="ml-3 text-gray-600 font-medium">Chargement des données...</span>
+      </div>
+    );
+  }
+
+  const { can_check_in, already_checked_in, official_opening_time, official_closing_time, latest_attendance, company_location } = dashboardData || {};
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-6">
+      
+      {/* En-tête */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Espace Pointage</h1>
+          <p className="text-sm text-gray-500">Gérez votre présence quotidienne en temps réel</p>
+        </div>
+        <div className="flex items-center space-x-2 text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg font-medium">
+          <Clock className="w-4 h-4" />
+          <span>Horaire : {official_opening_time?.slice(0, 5)} - {official_closing_time?.slice(0, 5)}</span>
+        </div>
+      </div>
+
+      {/* Messages d'alerte / Feedback */}
+      {feedback.message && (
+        <div className={`p-4 rounded-xl flex items-start space-x-3 ${
+          feedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          {feedback.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0 text-emerald-600" />
+          ) : (
+            <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-red-600" />
+          )}
+          <div className="text-sm font-medium">{feedback.message}</div>
+        </div>
+      )}
+
+      {/* Cartes d'information principale */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        <!-- Carte Statut du Jour -->
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col justify-between">
+        {/* Carte 1 : Statut du jour */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between">
           <div>
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Statut d'aujourd'hui</span>
             <div className="mt-3 flex items-center space-x-3">
-              <div v-if="alreadyCheckedIn" className="flex items-center space-x-2 text-emerald-600 font-bold text-lg">
-                <i className="fas font-check-circle text-2xl"></i>
-                <span>Présence enregistrée</span>
-              </div>
-              <div v-else-if="canCheckIn" className="flex items-center space-x-2 text-amber-600 font-bold text-lg">
-                <i className="fas font-clock text-2xl"></i>
-                <span>Pointage ouvert</span>
-              </div>
-              <div v-else className="flex items-center space-x-2 text-gray-500 font-bold text-lg">
-                <i className="fas font-times-circle text-2xl"></i>
-                <span>Pointage fermé</span>
-              </div>
+              {already_checked_in ? (
+                <div className="flex items-center space-x-2 text-emerald-600 font-bold text-lg">
+                  <CheckCircle2 className="w-6 h-6" />
+                  <span>Présence enregistrée</span>
+                </div>
+              ) : can_check_in ? (
+                <div className="flex items-center space-x-2 text-amber-600 font-bold text-lg">
+                  <Clock className="w-6 h-6" />
+                  <span>Pointage ouvert</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 text-gray-500 font-bold text-lg">
+                  <XCircle className="w-6 h-6" />
+                  <span>Pointage indisponible</span>
+                </div>
+              )}
             </div>
           </div>
 
-          <div v-if="latestAttendance" className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-            <div className="flex justify-between">
-              <span>Dernier pointage :</span>
-              <span className="font-semibold text-gray-900 dark:text-white">
-                {{ formatTime(latestAttendance.check_in_time) }}
-              </span>
+          {latest_attendance && (
+            <div className="mt-6 pt-4 border-t border-gray-100 space-y-2 text-sm text-gray-600">
+              <div className="flex justify-between">
+                <span>Dernier pointage :</span>
+                <span className="font-semibold text-gray-900">
+                  {new Date(latest_attendance.check_in_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Statut :</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                  latest_attendance.status === 'on_time' ? 'bg-emerald-100 text-emerald-800' :
+                  latest_attendance.status === 'late' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  {latest_attendance.status === 'on_time' ? 'À l\'heure' :
+                   latest_attendance.status === 'late' ? `Retard (${latest_attendance.late_minutes} min)` : 'Grand retard'}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span>Statut :</span>
-              <span 
-                className="px-2 py-0.5 rounded text-xs font-semibold"
-                :class="{
-                  'bg-emerald-100 text-emerald-800': latestAttendance.status === 'on_time',
-                  'bg-amber-100 text-amber-800': latestAttendance.status === 'late',
-                  'bg-red-100 text-red-800': latestAttendance.status === 'very_late'
-                }"
-              >
-                {{ getStatusLabel(latestAttendance) }}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
 
-        <!-- Carte Géofencing & GPS -->
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex flex-col justify-between">
+        {/* Carte 2 : Périmètre & Localisation */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Géofencing GPS</span>
               <button 
-                @click="getGeolocation" 
+                onClick={fetchLocation} 
                 className="text-xs text-blue-600 hover:underline flex items-center space-x-1"
+                title="Actualiser le GPS"
               >
-                <i className="fas font-sync-alt" :class="{ 'fa-spin': gettingLocation }"></i>
+                <RefreshCw className="w-3 h-3" />
                 <span>Actualiser</span>
               </button>
             </div>
 
             <div className="mt-3 space-y-3">
-              <div v-if="geoError" className="text-sm text-red-600 flex items-start space-x-2">
-                <i className="fas font-exclamation-triangle mt-0.5 shrink-0"></i>
-                <span>{{ geoError }}</span>
-              </div>
-
-              <template v-else-if="userLat && userLng">
-                <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
-                  <i className="fas font-map-marker-alt text-blue-500"></i>
-                  <span>Distance entreprise : <strong>{{ distanceMeters !== null ? `${distanceMeters} m` : 'Calcul...' }}</strong></span>
+              {geoError ? (
+                <div className="text-sm text-red-600 flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{geoError}</span>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
-                  <i className="fas font-building text-gray-400"></i>
-                  <span>Rayon autorisé : <strong>{{ geofenceRadius }} m</strong></span>
-                </div>
-              </template>
-
-              <div v-else className="text-sm text-gray-500">
-                Recherche de votre position GPS...
-              </div>
+              ) : userCoords.latitude ? (
+                <>
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <MapPin className="w-4 h-4 text-blue-500" />
+                    <span>Distance du siège : <strong>{distanceToCompany !== null ? `${distanceToCompany} m` : 'Calcul...'}</strong></span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Building className="w-4 h-4 text-gray-400" />
+                    <span>Périmètre autorisé : <strong>{company_location?.geofence_radius || 100} m</strong></span>
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-gray-500">Recherche de la position GPS...</div>
+              )}
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-            <span 
-              v-if="isWithinFence" 
-              className="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-full"
-            >
-              <i className="fas font-check-circle mr-1.5"></i> Dans la zone autorisée
-            </span>
-            <span 
-              v-else 
-              className="inline-flex items-center text-xs font-semibold text-red-700 bg-red-50 dark:bg-red-900/30 px-2.5 py-1 rounded-full"
-            >
-              <i className="fas font-shield-alt mr-1.5"></i> Hors de la zone autorisée
-            </span>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            {isWithinFence ? (
+              <span className="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Dans la zone autorisée
+              </span>
+            ) : (
+              <span className="inline-flex items-center text-xs font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded-full">
+                <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Hors de la zone autorisée
+              </span>
+            )}
           </div>
         </div>
 
       </div>
 
-      <!-- Formulaire de Pointage -->
-      <div v-if="!alreadyCheckedIn" className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Marquer mon arrivée</h2>
+      {/* Formulaire de Pointage */}
+      {!already_checked_in && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Marquer mon arrivée</h2>
 
-        <form @submit.prevent="handleCheckIn" className="space-y-4">
-          <div v-if="requireJustification" className="space-y-1">
-            <label className="block text-sm font-medium text-amber-800 dark:text-amber-400">
-              Motif du retard (Obligatoire) *
-            </label>
-            <textarea
-              v-model="justification"
-              placeholder="Veuillez préciser la raison de votre retard..."
-              className="w-full p-3 border border-amber-300 rounded-lg text-sm dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-              rows="3"
-              required
-            ></textarea>
-          </div>
+          <form onSubmit={handleCheckIn} className="space-y-4">
+            
+            {(needJustification || latest_attendance?.status === 'very_late') && (
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-amber-800">
+                  Motif du retard (Obligatoire) *
+                </label>
+                <textarea
+                  value={justification}
+                  onChange={(e) => setJustification(e.target.value)}
+                  placeholder="Veuillez préciser la raison de votre retard..."
+                  className="w-full p-3 border border-amber-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  rows={3}
+                  required
+                />
+              </div>
+            )}
 
-          <button
-            type="submit"
-            :disabled="!canCheckIn || submitting || !isWithinFence || !!geoError"
-            className="w-full py-3 px-4 rounded-xl font-bold text-white transition-all flex items-center justify-center space-x-2"
-            :class="canCheckIn && isWithinFence && !geoError && !submitting
-              ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 active:scale-[0.99]'
-              : 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500'"
-          >
-            <i v-if="submitting" className="fas font-circle-notch fa-spin"></i>
-            <i v-else className="fas font-fingerprint"></i>
-            <span>{{ submitting ? 'Pointage en cours...' : 'Valider mon pointage' }}</span>
-          </button>
+            <button
+              type="submit"
+              disabled={!can_check_in || submitting || !isWithinFence || !!geoError}
+              className={`w-full py-3 px-4 rounded-xl font-bold text-white transition-all flex items-center justify-center space-x-2 ${
+                can_check_in && isWithinFence && !geoError && !submitting
+                  ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 active:scale-[0.99]'
+                  : 'bg-gray-300 cursor-not-allowed text-gray-500'
+              }`}
+            >
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Enregistrement en cours...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span>Valider mon pointage</span>
+                </>
+              )}
+            </button>
 
-          <p v-if="!isWithinFence && !geoError" className="text-xs text-center text-red-500">
-            Rapprochez-vous des locaux de l'entreprise pour pouvoir pointer.
-          </p>
-        </form>
-      </div>
-    </template>
-  </div>
-</template>
+            {!isWithinFence && !geoError && (
+              <p className="text-xs text-center text-red-500">
+                Vous devez vous rapprocher des locaux de l'entreprise pour pouvoir valider votre pointage.
+              </p>
+            )}
+          </form>
+        </div>
+      )}
 
-<script setup>
-import { ref, onMounted, computed } from 'vue'
-import axios from '@/api/axios'
-import Swal from 'sweetalert2'
-
-// États réactifs
-const loading = ref(true)
-const submitting = ref(false)
-const gettingLocation = ref(false)
-
-const canCheckIn = ref(false)
-const alreadyCheckedIn = ref(false)
-const officialOpeningTime = ref('08:00:00')
-const officialClosingTime = ref('20:00:00')
-const latestAttendance = ref(null)
-
-const companyLat = ref(null)
-const companyLng = ref(null)
-const geofenceRadius = ref(100)
-
-const userLat = ref(null)
-const userLng = ref(null)
-const distanceMeters = ref(null)
-const geoError = ref(null)
-
-const justification = ref('')
-const requireJustification = ref(false)
-
-// Distance Haversine
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return null
-  const R = 6371e3
-  const rad1 = (lat1 * Math.PI) / 180
-  const rad2 = (lat2 * Math.PI) / 180
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLon = ((lon2 - lon1) * Math.PI) / 180
-
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(rad1) * Math.cos(rad2) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return Math.round(R * c)
+    </div>
+  );
 }
-
-const isWithinFence = computed(() => {
-  if (distanceMeters.value === null) return false
-  return distanceMeters.value <= geofenceRadius.value
-})
-
-// Obtenir la géolocalisation
-const getGeolocation = () => {
-  geoError.value = null
-  gettingLocation.value = true
-
-  if (!navigator.geolocation) {
-    geoError.value = "Géolocalisation non supportée par votre navigateur."
-    gettingLocation.value = false
-    return
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      userLat.value = pos.coords.latitude
-      userLng.value = pos.coords.longitude
-      gettingLocation.value = false
-
-      if (companyLat.value && companyLng.value) {
-        distanceMeters.value = calculateDistance(
-          userLat.value, userLng.value,
-          companyLat.value, companyLng.value
-        )
-      }
-    },
-    (err) => {
-      gettingLocation.value = false
-      if (err.code === 1) geoError.value = "Autorisation GPS refusée."
-      else if (err.code === 2) geoError.value = "Position GPS indisponible."
-      else geoError.value = "Délai d'attente GPS dépassé."
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  )
-}
-
-// Charger le Dashboard depuis Laravel Render
-const fetchDashboard = async () => {
-  try {
-    loading.value = true
-    const { data } = await axios.get('/api/employee/dashboard')
-    if (data.success) {
-      canCheckIn.value = data.can_check_in
-      alreadyCheckedIn.value = data.already_checked_in
-      officialOpeningTime.value = data.official_opening_time
-      officialClosingTime.value = data.official_closing_time
-      latestAttendance.value = data.latest_attendance
-
-      if (data.company_location) {
-        companyLat.value = data.company_location.latitude
-        companyLng.value = data.company_location.longitude
-        geofenceRadius.value = data.company_location.geofence_radius || 100
-      }
-    }
-  } catch (e) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Erreur',
-      text: e.response?.data?.message || 'Impossible de récupérer les données.',
-    })
-  } finally {
-    loading.value = false
-    getGeolocation()
-  }
-}
-
-// Effectuer le pointage
-const handleCheckIn = async () => {
-  if (!userLat.value || !userLng.value) {
-    Swal.fire('GPS requis', 'Veuillez autoriser et activer le GPS.', 'warning')
-    return
-  }
-
-  try {
-    submitting.value = true
-    const { data } = await axios.post('/api/attendances/check-in', {
-      latitude: userLat.value,
-      longitude: userLng.value,
-      justification: justification.value.trim() || null
-    })
-
-    Swal.fire({
-      icon: 'success',
-      title: 'Pointé !',
-      text: data.message || 'Votre présence a été enregistrée avec succès.',
-      timer: 2000,
-      showConfirmButton: false
-    })
-
-    justification.value = ''
-    requireJustification.value = false
-    await fetchDashboard()
-
-  } catch (e) {
-    const errorData = e.response?.data
-    if (errorData?.require_justification) {
-      requireJustification.value = true
-      Swal.fire('Justification requise', errorData.message, 'warning')
-    } else {
-      Swal.fire('Erreur de pointage', errorData?.message || 'Une erreur est survenue.', 'error')
-    }
-  } finally {
-    submitting.value = false
-  }
-}
-
-const formatTime = (isoString) => {
-  if (!isoString) return '--:--'
-  return new Date(isoString).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
-
-const getStatusLabel = (att) => {
-  if (att.status === 'on_time') return "À l'heure"
-  if (att.status === 'late') return `Retard (${att.late_minutes} min)`
-  return `Grand retard (${att.late_minutes} min)`
-}
-
-onMounted(() => {
-  fetchDashboard()
-})
-</script>
