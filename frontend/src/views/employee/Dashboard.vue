@@ -59,27 +59,27 @@
           </div>
         </div>
 
-        <!-- Colonne centrale : calendrier + navigation -->
+        <!-- Colonne centrale : calendrier + citation (avec hauteur pleine et push en bas) -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col h-full">
-          <!-- Titre + navigation mois -->
+          <!-- En-tête du calendrier avec navigation -->
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold dark:text-white">
               <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier
             </h2>
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2">
               <button
-                @click="prevMonth"
-                class="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                @click="changeMonth(-1)"
+                class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
                 aria-label="Mois précédent"
               >
                 <i class="fas fa-chevron-left"></i>
               </button>
               <span class="text-sm font-medium dark:text-white min-w-[100px] text-center">
-                {{ currentMonthLabel }}
+                {{ displayedMonthLabel }}
               </span>
               <button
-                @click="nextMonth"
-                class="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                @click="changeMonth(1)"
+                class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
                 aria-label="Mois suivant"
               >
                 <i class="fas fa-chevron-right"></i>
@@ -87,13 +87,13 @@
             </div>
           </div>
 
-          <!-- Le calendrier prend tout l'espace disponible -->
+          <!-- Calendrier avec flex-1 pour occuper l'espace -->
           <div class="flex-1">
-            <CalendarView :year="currentYear" :month="currentMonthNum" :events="calendarEvents" />
+            <CalendarView :year="displayedYear" :month="displayedMonth" :events="calendarEvents" />
           </div>
 
-          <!-- Bloc citation + jours fériés poussé en bas avec mt-auto -->
-          <div class="mt-4 space-y-3">
+          <!-- Bloc citation / jours fériés poussé en bas avec mt-auto -->
+          <div class="mt-auto pt-4 space-y-3">
             <DailyQuote />
             <div v-if="upcomingHolidays.length" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 text-sm">
               <h3 class="font-semibold text-blue-800 dark:text-blue-300 mb-2">
@@ -141,8 +141,7 @@
                     <td class="dark:text-white">{{ att.date }}</td>
                     <td class="dark:text-white">{{ att.check_in_time }}</td>
                     <td>
-                      <!-- Pas de dark:text-white ici pour ne pas écraser la couleur de la pastille -->
-                      <span class="px-2 py-1 rounded-full text-xs" :class="pointageStatusClass(att.status)">
+                      <span class="px-2 py-1 rounded-full text-xs font-medium" :class="pointageStatusClass(att.status)">
                         {{ att.statusLabel }}
                       </span>
                     </td>
@@ -180,39 +179,45 @@ import DailyQuote from '@/components/employee/DailyQuote.vue'
 const auth = useAuthStore()
 const user = computed(() => auth.user)
 
-// État
+// Données principales (jour courant)
 const todayAttendance = ref(null)
 const canCheckIn = ref(false)
 const leaveToday = ref(false)
 const pendingRequests = ref([])
 const recentAttendances = ref([])
 const monthlySummary = ref({ worked_days: 0, present_days: 0, late_count: 0, late_minutes: 0, absence_days: 0 })
-const calendarEvents = ref([])
-const upcomingHolidays = ref([])
 const loading = ref(true)
 const error = ref(false)
 
-// Gestion du mois calendrier (réactif)
-const currentDate = ref(new Date())
-const currentMonthNum = computed(() => currentDate.value.getMonth() + 1)
-const currentYear = computed(() => currentDate.value.getFullYear())
-const currentMonthLabel = computed(() => currentDate.value.toLocaleString('fr-FR', { month: 'long', year: 'numeric' }))
+// Calendrier : mois affiché (par défaut le mois courant)
+const displayedDate = ref(new Date())
+const displayedMonth = computed(() => displayedDate.value.getMonth() + 1)
+const displayedYear = computed(() => displayedDate.value.getFullYear())
+const displayedMonthLabel = computed(() =>
+  displayedDate.value.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })
+)
 
-const formattedDate = computed(() => new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
+// Événements du calendrier (liés au mois affiché)
+const calendarEvents = ref([])
+const upcomingHolidays = ref([])
 
-// Pastilles des derniers pointages (avec couleurs adaptées au mode sombre)
+const formattedDate = computed(() =>
+  new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+)
+
+// Classes de statut pour les pointages (avec meilleur contraste en mode sombre)
 function pointageStatusClass(status) {
   switch (status) {
     case 'on_time':
-      return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+      return 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
     case 'late':
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+      return 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'
     case 'major_late':
-      return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+      return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
     case 'authorized':
-      return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'
     default:
-      return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
   }
 }
 
@@ -236,52 +241,72 @@ const statusLabel = computed(() => {
   return 'Présent'
 })
 
-// Navigation mois
-function prevMonth() {
-  const newDate = new Date(currentDate.value)
-  newDate.setMonth(newDate.getMonth() - 1)
-  currentDate.value = newDate
-  fetchDashboard(currentMonthNum.value, currentYear.value)
-}
-
-function nextMonth() {
-  const newDate = new Date(currentDate.value)
-  newDate.setMonth(newDate.getMonth() + 1)
-  currentDate.value = newDate
-  fetchDashboard(currentMonthNum.value, currentYear.value)
-}
-
-// Chargement du dashboard (avec mois/année en paramètres)
-async function fetchDashboard(month = null, year = null) {
-  loading.value = true
-  error.value = false
+// Chargement des données principales
+async function fetchDashboard() {
   try {
-    const params = {}
-    if (month) params.month = month
-    if (year) params.year = year
-
-    const { data } = await api.get('/employee/dashboard', { params })
+    const { data } = await api.get('/employee/dashboard')
     todayAttendance.value = data.today_attendance
     canCheckIn.value = data.can_check_in
     leaveToday.value = data.leave_today
     pendingRequests.value = data.pending_requests || []
     recentAttendances.value = data.recent_attendances || []
     monthlySummary.value = data.monthly_summary
+    // On ne touche pas aux événements du calendrier ici, ils sont gérés par fetchCalendarEvents
+  } catch (e) {
+    console.error('Erreur chargement dashboard', e)
+    throw e
+  }
+}
+
+// Chargement des événements du calendrier pour le mois affiché
+async function fetchCalendarEvents(month, year) {
+  try {
+    const { data } = await api.get('/employee/calendar-events', {
+      params: { month, year }
+    })
     calendarEvents.value = data.calendar_events || []
     upcomingHolidays.value = data.upcoming_holidays || []
   } catch (e) {
-    console.error('Erreur chargement dashboard employé', e)
+    console.error('Erreur chargement calendrier', e)
+    // Garder les anciennes données en cas d'échec
+  }
+}
+
+// Changement de mois
+async function changeMonth(delta) {
+  const newDate = new Date(displayedDate.value)
+  newDate.setMonth(newDate.getMonth() + delta)
+  displayedDate.value = newDate
+  // Recharger les événements pour le nouveau mois
+  await fetchCalendarEvents(displayedMonth.value, displayedYear.value)
+}
+
+// Rafraîchissement global (après pointage, etc.)
+async function refreshData() {
+  loading.value = true
+  error.value = false
+  try {
+    await fetchDashboard()
+    // Recharger aussi les événements du mois en cours
+    await fetchCalendarEvents(displayedMonth.value, displayedYear.value)
+  } catch (e) {
     error.value = true
   } finally {
     loading.value = false
   }
 }
 
-function refreshData() {
-  fetchDashboard(currentMonthNum.value, currentYear.value)
-}
-
-onMounted(() => {
-  fetchDashboard(currentMonthNum.value, currentYear.value)
+// Initialisation
+onMounted(async () => {
+  loading.value = true
+  error.value = false
+  try {
+    await fetchDashboard()
+    await fetchCalendarEvents(displayedMonth.value, displayedYear.value)
+  } catch (e) {
+    error.value = true
+  } finally {
+    loading.value = false
+  }
 })
 </script>
