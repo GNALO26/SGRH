@@ -24,8 +24,8 @@
             </td>
             <td class="p-3">
               <template v-if="leave.status === 'pending'">
-                <button @click="update(leave)" class="text-green-600 hover:underline mr-2">Valider</button>
-                <button @click="reject(leave)" class="text-red-600 hover:underline">Refuser</button>
+                <button @click="update(leave.id, 'approved')" class="text-green-600 hover:underline mr-2">Valider</button>
+                <button @click="update(leave.id, 'rejected')" class="text-red-600 hover:underline">Refuser</button>
               </template>
               <span v-else class="text-gray-400">-</span>
             </td>
@@ -63,28 +63,15 @@ async function fetchLeaves() {
   }
 }
 
-async function update(leave) {
+async function update(id, status) {
   try {
-    const { data } = await api.patch(`/admin/leaves/${leave.id}`, { status: 'approved' })
-    // Mise à jour immédiate de l'élément dans le tableau
-    const index = leaves.value.findIndex(l => l.id === leave.id)
+    const { data: updatedLeave } = await api.patch(`/admin/leaves/${id}`, { status })
+    // Remplacer l'élément dans le tableau par l'objet retourné
+    const index = leaves.value.findIndex(l => l.id === id)
     if (index !== -1) {
-      leaves.value[index] = data   // data contient le nouvel objet avec status approved
+      leaves.value[index] = updatedLeave
     }
-    Swal.fire('Succès', 'Demande validée', 'success')
-  } catch (e) {
-    Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
-  }
-}
-
-async function reject(leave) {
-  try {
-    const { data } = await api.patch(`/admin/leaves/${leave.id}`, { status: 'rejected' })
-    const index = leaves.value.findIndex(l => l.id === leave.id)
-    if (index !== -1) {
-      leaves.value[index] = data
-    }
-    Swal.fire('Succès', 'Demande refusée', 'success')
+    Swal.fire('Succès', 'Demande mise à jour', 'success')
   } catch (e) {
     Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
   }

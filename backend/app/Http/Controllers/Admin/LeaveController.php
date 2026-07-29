@@ -31,18 +31,19 @@ class LeaveController extends Controller
         return response()->json($leaves);
     }
 
-    public function update(Request $request, Leave $leave)
+    public function update(Request $request, $id)
     {
         $request->validate(['status' => 'required|in:approved,rejected']);
 
-        // Mise à jour en base
+        // Récupérer le modèle directement (sans l'injection implicite qui peut être buggée)
+        $leave = Leave::findOrFail($id);
         $leave->update([
             'status'      => $request->status,
             'approved_by' => $request->user()->id,
         ]);
 
-        // Recharge depuis la base et charge la relation user pour les logs
-        $leave->refresh()->load('user');
+        // Recharger manuellement depuis la base de données avec la relation user
+        $leave = Leave::with('user')->find($leave->id);
 
         $employee   = $leave->user;
         $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
@@ -67,7 +68,7 @@ class LeaveController extends Controller
             report($e);
         }
 
-        // Retourne l'objet complet avec la relation user
+        // Retourner l'objet complet pour le frontend
         return response()->json([
             'id'         => $leave->id,
             'user'       => $leave->user ? ['id' => $leave->user->id, 'name' => $leave->user->name] : null,
