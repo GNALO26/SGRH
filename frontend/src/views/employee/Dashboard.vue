@@ -59,9 +59,8 @@
           </div>
         </div>
 
-        <!-- Colonne centrale : calendrier + citation (pas de flex forcing) -->
+        <!-- Colonne centrale : calendrier + citation -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-          <!-- En-tête calendrier avec navigation -->
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold dark:text-white">
               <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Calendrier
@@ -87,10 +86,8 @@
             </div>
           </div>
 
-          <!-- Calendrier (taille naturelle) -->
           <CalendarView :year="displayedYear" :month="displayedMonth" :events="calendarEvents" />
 
-          <!-- Citation et jours fériés : remontés avec un simple margin-top -->
           <div class="mt-4 space-y-3">
             <DailyQuote />
             <div v-if="upcomingHolidays.length" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 text-sm">
@@ -167,6 +164,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 import api from '@/api/axios'
 import AttendanceButton from '@/components/attendance/AttendanceButton.vue'
@@ -175,6 +173,7 @@ import StatsCard from '@/components/common/StatsCard.vue'
 import DailyQuote from '@/components/employee/DailyQuote.vue'
 
 const auth = useAuthStore()
+const router = useRouter()
 const user = computed(() => auth.user)
 
 // Données principales (jour courant)
@@ -249,6 +248,12 @@ async function fetchDashboard() {
     pendingRequests.value = data.pending_requests || []
     recentAttendances.value = data.recent_attendances || []
     monthlySummary.value = data.monthly_summary
+
+    // Redirection automatique si des absences non justifiées sont détectées
+    if (data.has_pending_absences) {
+      auth.setRequiresExplanation(true)
+      router.push('/employee/explain-absence')
+    }
   } catch (e) {
     console.error('Erreur chargement dashboard', e)
     throw e

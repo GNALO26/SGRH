@@ -26,6 +26,9 @@ export const useAuthStore = defineStore('auth', {
       const { data } = await api.get('/me')
       this.user = data
     },
+    setRequiresExplanation(value) {
+      this.requiresExplanation = value
+    },
     logout() {
       this.token = null
       this.user = null

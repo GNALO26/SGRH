@@ -9,6 +9,7 @@ use App\Models\Leave;
 use App\Models\RetardAuthorization;
 use App\Models\UnjustifiedAbsence;
 use App\Models\User;
+use App\Services\AbsenceService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
@@ -16,12 +17,22 @@ use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
+    /**
+     * Tableau de bord principal de l'employé.
+     */
     public function index(): JsonResponse
     {
         try {
             $employee = request()->user();
             if (!$employee) {
                 return response()->json(['message' => 'Utilisateur non authentifié.'], 401);
+            }
+
+            // ===== DÉTECTION DES ABSENCES NON JUSTIFIÉES =====
+            try {
+                app(AbsenceService::class)->detectAndCreateAbsences($employee);
+            } catch (\Exception $e) {
+                Log::error('Erreur détection absences', ['user_id' => $employee->id, 'error' => $e->getMessage()]);
             }
 
             $today = Carbon::today();
@@ -139,51 +150,14 @@ class DashboardController extends Controller
                 ->whereBetween('start_date', [$firstOfMonth, $endOfMonth])
                 ->count();
 
-            // --- Événements calendrier ---
-            $calendarEvents = [];
-            foreach ($attendancesThisMonth as $att) {
-                $status = in_array($att->status, ['late','major_late']) ? 'late' : 'present';
-                $calendarEvents[] = ['date' => $att->date, 'status' => $status];
-            }
-
-            $leavesThisMonth = Leave::where('user_id', $employee->id)
-                ->where('status', 'approved')
-                ->where(function ($q) use ($firstOfMonth, $endOfMonth) {
-                    $q->whereBetween('start_date', [$firstOfMonth, $endOfMonth])
-                      ->orWhereBetween('end_date', [$firstOfMonth, $endOfMonth]);
-                })->get();
-
-            foreach ($leavesThisMonth as $leave) {
-                $start = max($leave->start_date, $firstOfMonth);
-                $end   = min($leave->end_date, $endOfMonth);
-                try {
-                    $period = CarbonPeriod::create($start, $end);
-                    foreach ($period as $date) {
-                        $calendarEvents[] = ['date' => $date->toDateString(), 'status' => 'leave'];
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Erreur période calendrier', ['msg' => $e->getMessage()]);
-                }
-            }
-
-            $holidaysMonth = Holiday::whereBetween('date', [$firstOfMonth, $endOfMonth])->get();
-            foreach ($holidaysMonth as $holiday) {
-                $calendarEvents[] = ['date' => $holiday->date->toDateString(), 'status' => 'holiday'];
-            }
+            // --- Événements calendrier (mois courant uniquement pour le résumé) ---
+            // Cette partie n'est plus utilisée pour le composant calendrier car il appelle un endpoint séparé,
+            // mais nous la conservons pour la rétrocompatibilité avec l'ancien code.
+            $calendarEvents = []; // sera chargé par /calendar-events
 
             $hasPendingAbsences = UnjustifiedAbsence::where('user_id', $employee->id)
                 ->where('status', 'pending')
                 ->exists();
-
-            $upcomingHolidays = Holiday::where('date', '>=', $today)
-                ->orderBy('date')
-                ->take(5)
-                ->get()
-                ->map(fn($h) => [
-                    'id'          => $h->id,
-                    'date'        => $h->date->toDateString(),
-                    'description' => $h->description,
-                ]);
 
             return response()->json([
                 'today_attendance'   => $todayAttendance,
@@ -198,9 +172,9 @@ class DashboardController extends Controller
                     'late_minutes' => $lateMinutes,
                     'absence_days' => $absenceDays,
                 ],
-                'calendar_events'    => $calendarEvents,
+                'calendar_events'    => $calendarEvents, // vide ou inchangé pour compatibilité
                 'has_pending_absences' => $hasPendingAbsences,
-                'upcoming_holidays'  => $upcomingHolidays,
+                'upcoming_holidays'  => [], // sera chargé par /calendar-events
             ]);
         } catch (\Exception $e) {
             Log::error('Dashboard employé - erreur', [
@@ -211,6 +185,84 @@ class DashboardController extends Controller
             return response()->json([
                 'message' => 'Erreur interne du serveur.',
                 'error'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Nouvel endpoint pour les événements du calendrier (appelé séparément par le frontend).
+     */
+    public function calendarEvents(Request $request): JsonResponse
+    {
+        try {
+            $employee = request()->user();
+            $month = (int) $request->input('month', Carbon::today()->month);
+            $year  = (int) $request->input('year', Carbon::today()->year);
+
+            $firstOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+            $endOfMonth   = $firstOfMonth->copy()->endOfMonth();
+
+            // Présences du mois
+            $attendances = Attendance::where('user_id', $employee->id)
+                ->whereBetween('date', [$firstOfMonth, $endOfMonth])
+                ->get();
+
+            $calendarEvents = [];
+            foreach ($attendances as $att) {
+                $status = in_array($att->status, ['late','major_late']) ? 'late' : 'present';
+                $calendarEvents[] = ['date' => $att->date->toDateString(), 'status' => $status];
+            }
+
+            // Congés validés
+            $leaves = Leave::where('user_id', $employee->id)
+                ->where('status', 'approved')
+                ->where(function ($q) use ($firstOfMonth, $endOfMonth) {
+                    $q->whereBetween('start_date', [$firstOfMonth, $endOfMonth])
+                      ->orWhereBetween('end_date', [$firstOfMonth, $endOfMonth]);
+                })->get();
+
+            foreach ($leaves as $leave) {
+                $start = max($leave->start_date, $firstOfMonth);
+                $end   = min($leave->end_date, $endOfMonth);
+                try {
+                    $period = CarbonPeriod::create($start, $end);
+                    foreach ($period as $date) {
+                        $calendarEvents[] = ['date' => $date->toDateString(), 'status' => 'leave'];
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Erreur période calendrier', ['msg' => $e->getMessage()]);
+                }
+            }
+
+            // Jours fériés du mois
+            $holidays = Holiday::whereBetween('date', [$firstOfMonth, $endOfMonth])->get();
+            foreach ($holidays as $holiday) {
+                $calendarEvents[] = ['date' => $holiday->date->toDateString(), 'status' => 'holiday'];
+            }
+
+            // Prochains jours fériés (hors mois courant)
+            $upcomingHolidays = Holiday::where('date', '>=', Carbon::today())
+                ->orderBy('date')
+                ->take(5)
+                ->get()
+                ->map(fn($h) => [
+                    'id'          => $h->id,
+                    'date'        => $h->date->toDateString(),
+                    'description' => $h->description,
+                ]);
+
+            return response()->json([
+                'calendar_events' => $calendarEvents,
+                'upcoming_holidays' => $upcomingHolidays,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Calendar events - erreur', [
+                'user_id' => request()->user()?->id,
+                'message' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'calendar_events' => [],
+                'upcoming_holidays' => [],
             ], 500);
         }
     }
