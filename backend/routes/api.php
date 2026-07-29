@@ -69,21 +69,24 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ===================== EMPLOYÉ =====================
-Route::middleware('role:employee')->prefix('employee')->group(function () {
-    Route::get('/dashboard', [EmployeeDashboardController::class, 'index']);
-    Route::post('/attendance', [AttendanceController::class, 'store']);
-    Route::get('/attendance/today', [AttendanceController::class, 'today']);
-    Route::get('/attendance/history', [AttendanceController::class, 'history']);
-    Route::get('/attendance/export', [AttendanceController::class, 'export']);
-    Route::apiResource('leaves', LeaveRequestController::class)->only(['index', 'store', 'destroy']);
-    Route::apiResource('retard-authorizations', RetardAuthorizationController::class)->only(['index', 'store', 'destroy']);
-    Route::get('/documents', [EmployeeDocumentController::class, 'index']);
-    Route::get('/unjustified-absences', [EmployeeUnjustifiedAbsenceController::class, 'index']);
-    Route::post('/unjustified-absences/{absence}/explain', [EmployeeUnjustifiedAbsenceController::class, 'explain']);
-    Route::apiResource('assistance', EmployeeAssistanceController::class)->only(['index', 'store']);
-    Route::get('/notifications', [NotificationController::class, 'index']);
-    Route::post('/notifications/read', [NotificationController::class, 'markAsRead']);
-    // Nouvelle route pour les événements du calendrier
-    Route::get('/calendar-events', [EmployeeDashboardController::class, 'calendarEvents']);
+    Route::middleware('role:employee')->prefix('employee')->group(function () {
+        Route::get('/dashboard', [EmployeeDashboardController::class, 'index']);
+        Route::post('/attendance', [AttendanceController::class, 'store']);
+        Route::get('/attendance/today', [AttendanceController::class, 'today']);
+        Route::get('/attendance/history', [AttendanceController::class, 'history']);
+        Route::get('/attendance/export', [AttendanceController::class, 'export']);
+        Route::apiResource('leaves', LeaveRequestController::class)->only(['index', 'store', 'destroy']);
+        Route::apiResource('retard-authorizations', RetardAuthorizationController::class)->only(['index', 'store', 'destroy']);
+        Route::get('/documents', [EmployeeDocumentController::class, 'index']);
+        Route::get('/unjustified-absences', [EmployeeUnjustifiedAbsenceController::class, 'index']);
+        Route::post('/unjustified-absences/{absence}/explain', [EmployeeUnjustifiedAbsenceController::class, 'explain']);
+        Route::apiResource('assistance', EmployeeAssistanceController::class)->only(['index', 'store']);
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/read', [NotificationController::class, 'markAsRead']);
+        // Nouvelle route pour les événements du calendrier
+        Route::get('/calendar-events', [EmployeeDashboardController::class, 'calendarEvents']);
+    });
 });
-});
+
+// Route interne pour la détection automatique des absences (cron job externe)
+Route::get('/internal/trigger-absences', [\App\Http\Controllers\Internal\TriggerAbsencesController::class, '__invoke']);

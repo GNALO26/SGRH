@@ -34,14 +34,17 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+
     'cloudinary' => [
-    'cloudinary_url' => env('CLOUDINARY_URL'),
-],
+        'cloudinary_url' => env('CLOUDINARY_URL'),
+    ],
 
     'fedapay' => [
-    'public_key' => env('FEDAPAY_PUBLIC_KEY'),
-    'secret_key' => env('FEDAPAY_SECRET_KEY'),
-    'environment' => env('FEDAPAY_ENVIRONMENT', 'live'),
-],
+        'public_key' => env('FEDAPAY_PUBLIC_KEY'),
+        'secret_key' => env('FEDAPAY_SECRET_KEY'),
+        'environment' => env('FEDAPAY_ENVIRONMENT', 'live'),
+    ],
+
+    'absence_trigger_token' => env('ABSENCE_TRIGGER_TOKEN'),
 
 ];
