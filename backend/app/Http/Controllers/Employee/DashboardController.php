@@ -13,6 +13,7 @@ use App\Services\AbsenceService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
@@ -151,8 +152,6 @@ class DashboardController extends Controller
                 ->count();
 
             // --- Événements calendrier (mois courant uniquement pour le résumé) ---
-            // Cette partie n'est plus utilisée pour le composant calendrier car il appelle un endpoint séparé,
-            // mais nous la conservons pour la rétrocompatibilité avec l'ancien code.
             $calendarEvents = []; // sera chargé par /calendar-events
 
             $hasPendingAbsences = UnjustifiedAbsence::where('user_id', $employee->id)
@@ -195,7 +194,11 @@ class DashboardController extends Controller
     public function calendarEvents(Request $request): JsonResponse
     {
         try {
-            $employee = request()->user();
+            $employee = $request->user();
+            if (!$employee) {
+                return response()->json(['message' => 'Non authentifié'], 401);
+            }
+
             $month = (int) $request->input('month', Carbon::today()->month);
             $year  = (int) $request->input('year', Carbon::today()->year);
 
@@ -257,7 +260,7 @@ class DashboardController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Calendar events - erreur', [
-                'user_id' => request()->user()?->id,
+                'user_id' => $request->user()?->id,
                 'message' => $e->getMessage(),
             ]);
             return response()->json([
