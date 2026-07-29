@@ -32,6 +32,7 @@
           </tr>
         </tbody>
       </table>
+      <p v-if="leaves.length === 0" class="p-4 text-gray-500 dark:text-gray-400 text-center">Aucune demande.</p>
     </div>
   </div>
 </template>
@@ -43,23 +44,39 @@ import Swal from 'sweetalert2'
 
 const leaves = ref([])
 
-const statusBadge = (s) => ({ pending: 'bg-yellow-100 text-yellow-700', approved: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700' }[s] || '')
+const statusBadge = (s) => ({
+  pending: 'bg-yellow-100 text-yellow-700',
+  approved: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
+}[s] || '')
+
 const statusText = (s) => ({ pending: 'En attente', approved: 'Validé', rejected: 'Refusé' }[s] || s)
+
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
 
 async function fetchLeaves() {
   try {
-    const { data } = await api.get('/admin/leaves')
+    // Ajout d'un paramètre timestamp pour contourner d'éventuels caches
+    const { data } = await api.get(`/admin/leaves?_t=${Date.now()}`)
+    console.log('Leaves fetched:', data)
     leaves.value = data
-  } catch (e) { Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error') }
+  } catch (e) {
+    console.error('Erreur fetchLeaves', e)
+    Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
+  }
 }
 
 async function update(id, status) {
   try {
     await api.patch(`/admin/leaves/${id}`, { status })
     Swal.fire('Succès', 'Demande mise à jour', 'success')
-    fetchLeaves()
-  } catch (e) { Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error') }
+    // Rafraîchissement après 500 ms pour garantir que la mise à jour en base est effective
+    setTimeout(() => {
+      fetchLeaves()
+    }, 500)
+  } catch (e) {
+    Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
+  }
 }
 
 onMounted(fetchLeaves)

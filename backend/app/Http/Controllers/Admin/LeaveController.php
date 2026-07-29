@@ -40,33 +40,31 @@ class LeaveController extends Controller
             'approved_by' => $request->user()->id,
         ]);
 
-        $employee   = $leave->user;
-        $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
+        // Recharge le modèle depuis la base de données pour garantir la fraîcheur
+        $leave->refresh();
 
+        // Enregistrement des logs et envoi des notifications (protégé)
         try {
+            $employee   = $leave->user;
+            $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
             $this->activityService->log(
                 $request->user(),
                 "congé_{$request->status}",
                 "Congé {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$leave->start_date} - {$leave->end_date})",
                 'fas fa-calendar-check'
             );
-        } catch (\Exception $e) {
-            report($e);
-        }
-
-        if ($employee) {
-            try {
+            if ($employee) {
                 $this->notificationService->createForUser(
                     $employee,
                     "Votre congé du {$leave->start_date} au {$leave->end_date} a été {$statusText}.",
                     'fas fa-calendar-check',
                     now()->diffForHumans()
                 );
-            } catch (\Exception $e) {
-                report($e);
             }
+        } catch (\Exception $e) {
+            report($e);
         }
 
-        return response()->json($leave->fresh('user'));
+        return response()->json($leave);
     }
 }
