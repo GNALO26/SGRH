@@ -24,8 +24,8 @@
             </td>
             <td class="p-3">
               <template v-if="leave.status === 'pending'">
-                <button @click="update(leave.id, 'approved')" class="text-green-600 hover:underline mr-2">Valider</button>
-                <button @click="update(leave.id, 'rejected')" class="text-red-600 hover:underline">Refuser</button>
+                <button @click="update(leave)" class="text-green-600 hover:underline mr-2">Valider</button>
+                <button @click="reject(leave)" class="text-red-600 hover:underline">Refuser</button>
               </template>
               <span v-else class="text-gray-400">-</span>
             </td>
@@ -56,24 +56,35 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
 
 async function fetchLeaves() {
   try {
-    // Ajout d'un paramètre timestamp pour contourner d'éventuels caches
     const { data } = await api.get(`/admin/leaves?_t=${Date.now()}`)
-    console.log('Leaves fetched:', data)
     leaves.value = data
   } catch (e) {
-    console.error('Erreur fetchLeaves', e)
     Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
   }
 }
 
-async function update(id, status) {
+async function update(leave) {
   try {
-    await api.patch(`/admin/leaves/${id}`, { status })
-    Swal.fire('Succès', 'Demande mise à jour', 'success')
-    // Rafraîchissement après 500 ms pour garantir que la mise à jour en base est effective
-    setTimeout(() => {
-      fetchLeaves()
-    }, 500)
+    const { data } = await api.patch(`/admin/leaves/${leave.id}`, { status: 'approved' })
+    // Mise à jour immédiate de l'élément dans le tableau
+    const index = leaves.value.findIndex(l => l.id === leave.id)
+    if (index !== -1) {
+      leaves.value[index] = data   // data contient le nouvel objet avec status approved
+    }
+    Swal.fire('Succès', 'Demande validée', 'success')
+  } catch (e) {
+    Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
+  }
+}
+
+async function reject(leave) {
+  try {
+    const { data } = await api.patch(`/admin/leaves/${leave.id}`, { status: 'rejected' })
+    const index = leaves.value.findIndex(l => l.id === leave.id)
+    if (index !== -1) {
+      leaves.value[index] = data
+    }
+    Swal.fire('Succès', 'Demande refusée', 'success')
   } catch (e) {
     Swal.fire('Erreur', e.response?.data?.message || 'Erreur', 'error')
   }

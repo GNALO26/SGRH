@@ -35,18 +35,20 @@ class LeaveController extends Controller
     {
         $request->validate(['status' => 'required|in:approved,rejected']);
 
+        // Mise à jour en base
         $leave->update([
             'status'      => $request->status,
             'approved_by' => $request->user()->id,
         ]);
 
-        // Recharge le modèle depuis la base de données pour garantir la fraîcheur
-        $leave->refresh();
+        // Recharge depuis la base et charge la relation user pour les logs
+        $leave->refresh()->load('user');
 
-        // Enregistrement des logs et envoi des notifications (protégé)
+        $employee   = $leave->user;
+        $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
+
+        // Logs et notifications protégés
         try {
-            $employee   = $leave->user;
-            $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
             $this->activityService->log(
                 $request->user(),
                 "congé_{$request->status}",
@@ -65,6 +67,15 @@ class LeaveController extends Controller
             report($e);
         }
 
-        return response()->json($leave);
+        // Retourne l'objet complet avec la relation user
+        return response()->json([
+            'id'         => $leave->id,
+            'user'       => $leave->user ? ['id' => $leave->user->id, 'name' => $leave->user->name] : null,
+            'type'       => $leave->type,
+            'start_date' => $leave->start_date,
+            'end_date'   => $leave->end_date,
+            'reason'     => $leave->reason,
+            'status'     => $leave->status,
+        ]);
     }
 }
