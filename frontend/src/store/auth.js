@@ -9,7 +9,7 @@ export const useAuthStore = defineStore('auth', {
     pendingAbsences: [],
   }),
   getters: {
-    isAuthenticated: (state) => !!state.token,
+    isAuthenticated: (state) => !!state.token && !!state.user,
     userRole: (state) => state.user?.role,
   },
   actions: {
@@ -25,6 +25,20 @@ export const useAuthStore = defineStore('auth', {
     async fetchUser() {
       const { data } = await api.get('/me')
       this.user = data
+    },
+    // Nouvelle action : vérifier si le token est encore valide
+    async checkAuth() {
+      if (!this.token) {
+        this.logout()
+        return false
+      }
+      try {
+        await this.fetchUser()
+        return true
+      } catch (e) {
+        this.logout()
+        return false
+      }
     },
     setRequiresExplanation(value) {
       this.requiresExplanation = value

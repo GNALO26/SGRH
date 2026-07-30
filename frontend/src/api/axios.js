@@ -10,16 +10,13 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // Anti-cache : force chaque GET à être traité comme une requête neuve
-  if (config.method === 'get') {
-    config.params = { ...config.params, _ts: Date.now() };
-  }
   return config;
 }, (error) => Promise.reject(error));
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // En cas d'erreur 422, on enrichit le message
     if (error.response?.status === 422 && error.response.data?.errors) {
       error.response.data.fieldErrors = error.response.data.errors;
       const firstField = Object.keys(error.response.data.errors)[0];
@@ -27,10 +24,14 @@ api.interceptors.response.use(
         ? error.response.data.errors[firstField][0]
         : error.response.data.errors[firstField];
     }
+
+    // En cas de 401, on se contente de supprimer le token local.
+    // La redirection est gérée par le routeur (beforeEach).
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Ne pas faire window.location.href ici !
     }
+
     return Promise.reject(error);
   }
 );

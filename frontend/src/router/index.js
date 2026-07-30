@@ -6,7 +6,6 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
-  // Nouvelles routes pour la réinitialisation de mot de passe (publiques)
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
   { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
   {
@@ -65,26 +64,41 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+
+  // Si la route nécessite une authentification
   if (to.matched.some(r => r.meta.requiresAuth)) {
-    if (!auth.token) return '/login'
-    if (to.meta.role && auth.user?.role !== to.meta.role) {
-      return auth.user?.role === 'admin' ? '/admin' : '/employee'
+    // Si pas de token, on redirige vers login
+    if (!auth.token) {
+      return '/login'
     }
+
+    // Si on a un token mais pas encore l'utilisateur, on vérifie le token
     if (!auth.user) {
-      try {
-        await auth.fetchUser()
-      } catch (e) {
-        auth.logout()
+      const isValid = await auth.checkAuth()
+      if (!isValid) {
+        // Token invalide, redirection vers login
         return '/login'
       }
     }
+
+    // Vérification du rôle
+    if (to.meta.role && auth.user?.role !== to.meta.role) {
+      return auth.user?.role === 'admin' ? '/admin' : '/employee'
+    }
+
+    // Redirection si absences non justifiées (employé)
     if (auth.user?.role === 'employee' && auth.requiresExplanation && to.name !== 'ExplainAbsence') {
       return '/employee/explain-absence'
     }
+
     return true
-  } else if (to.matched.some(r => r.meta.guest) && auth.token) {
+  }
+
+  // Si la route est "guest" et qu'on est authentifié, on redirige vers le dashboard approprié
+  if (to.matched.some(r => r.meta.guest) && auth.isAuthenticated) {
     return auth.user?.role === 'admin' ? '/admin' : '/employee'
   }
+
   return true
 })
 
