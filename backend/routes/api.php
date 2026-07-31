@@ -42,6 +42,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout']);
     Route::post('/user/avatar', [ProfileController::class, 'updateAvatar']);
 
+    // Enregistrement du token FCM (commun aux deux rôles)
+    Route::post('/fcm-token', [\App\Http\Controllers\Api\FcmTokenController::class, 'store']);
+
     // Jours fériés (accessibles aux deux rôles)
     Route::get('/holidays', [AdminHolidayController::class, 'index']);
 

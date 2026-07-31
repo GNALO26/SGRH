@@ -1,8 +1,6 @@
 <template>
   <div class="space-y-6">
     <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Pointage du jour</h1>
-
-    <!-- État du jour -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
       <div class="flex items-center justify-between">
         <div>
@@ -25,8 +23,6 @@
         <p class="text-sm text-gray-600 dark:text-gray-300">Le pointage n'est pas disponible actuellement.</p>
       </div>
     </div>
-
-    <!-- Historique des pointages -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
       <h2 class="text-lg font-semibold mb-4 dark:text-white">Historique des pointages</h2>
       <div class="flex gap-4 mb-4">
