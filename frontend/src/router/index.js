@@ -5,9 +5,32 @@ import EmployeeLayout from '@/layouts/EmployeeLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const routes = [
+  // ===================== LANDING PAGE (publiques) =====================
+  {
+    path: '/',
+    name: 'Home',
+    component: () => import('@/views/landing/HomePage.vue'),
+    meta: { guest: true },
+  },
+  {
+    path: '/fonctionnalites',
+    name: 'Features',
+    component: () => import('@/views/landing/FeaturesPage.vue'),
+    meta: { guest: true },
+  },
+  {
+    path: '/telechargement',
+    name: 'Download',
+    component: () => import('@/views/landing/DownloadPage.vue'),
+    meta: { guest: true },
+  },
+
+  // ===================== AUTH =====================
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
   { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
+
+  // ===================== EMPLOYÉ =====================
   {
     path: '/employee/explain-absence',
     name: 'ExplainAbsence',
@@ -32,6 +55,8 @@ const routes = [
       { path: 'unjustified-absences', name: 'UnjustifiedAbsences', component: () => import('@/views/employee/UnjustifiedAbsences.vue') },
     ]
   },
+
+  // ===================== ADMIN =====================
   {
     path: '/admin',
     component: AdminLayout,
@@ -54,7 +79,6 @@ const routes = [
       { path: 'profil', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue') },
     ]
   },
-  { path: '/', redirect: '/login' },
 ]
 
 const router = createRouter({
