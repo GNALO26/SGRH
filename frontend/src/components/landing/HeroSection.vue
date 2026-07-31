@@ -1,15 +1,15 @@
 <template>
-  <section class="relative h-screen flex items-center justify-center overflow-hidden">
-    <!-- Vidéo de fond -->
+  <section class="relative h-[80vh] flex items-center justify-center overflow-hidden">
+    <!-- Vidéo de fond (choisie aléatoirement au montage) -->
     <video
       autoplay
       muted
       loop
       playsinline
       class="absolute inset-0 w-full h-full object-cover"
+      :key="videoSrc"
     >
-      <source src="/assets/videos/hero-background.webm" type="video/webm" />
-      <source src="/assets/videos/hero-background.mp4" type="video/mp4" />
+      <source :src="videoSrc" type="video/mp4" />
     </video>
 
     <!-- Overlay dégradé -->
@@ -48,4 +48,16 @@
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
+
+const videos = [
+  '/assets/videos/hero-01.mp4',
+  '/assets/videos/hero-02.mp4',
+  '/assets/videos/hero-03.mp4',
+  '/assets/videos/hero-background.mp4', // vidéo existante
+]
+
+// Choisir une vidéo aléatoire à chaque montage
+const randomIndex = Math.floor(Math.random() * videos.length)
+const videoSrc = ref(videos[randomIndex])
 </script>

@@ -8,6 +8,7 @@
 
 <script setup>
 import { onMounted } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { useAuthStore } from '@/store/auth'
 import api from '@/api/axios'
@@ -15,21 +16,18 @@ import api from '@/api/axios'
 const authStore = useAuthStore()
 
 onMounted(async () => {
-  // Demander la permission et s'enregistrer pour les notifications push
+  // Ne rien faire sur le web (les push notifications sont uniquement pour l'app native)
+  if (!Capacitor.isNativePlatform()) return
+
   let permStatus = await PushNotifications.checkPermissions()
   if (permStatus.receive === 'prompt') {
     permStatus = await PushNotifications.requestPermissions()
   }
-  if (permStatus.receive !== 'granted') {
-    console.warn('Permission de notification refusée')
-    return
-  }
+  if (permStatus.receive !== 'granted') return
 
   await PushNotifications.register()
 
-  // Réception du token FCM
   PushNotifications.addListener('registration', async (token) => {
-    console.log('FCM Token:', token.value)
     if (authStore.isAuthenticated) {
       try {
         await api.post('/fcm-token', { fcm_token: token.value })
@@ -39,7 +37,6 @@ onMounted(async () => {
     }
   })
 
-  // Réception d'une notification en premier plan
   PushNotifications.addListener('pushNotificationReceived', (notification) => {
     console.log('Notification reçue :', notification)
   })
@@ -47,27 +44,12 @@ onMounted(async () => {
 </script>
 
 <style>
-/* Transition de base */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
 .fade-enter-from,
 .fade-leave-to {
-  opacity: 0;
-}
-
-/* Transition slide (optionnelle, à utiliser avec meta.transition: 'slide') */
-.slide-enter-active,
-.slide-leave-active {
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-.slide-enter-from {
-  transform: translateX(20px);
-  opacity: 0;
-}
-.slide-leave-to {
-  transform: translateX(-20px);
   opacity: 0;
 }
 </style>
