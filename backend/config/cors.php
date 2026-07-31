@@ -3,10 +3,7 @@
 return [
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => [
-        env('CORS_ALLOWED_ORIGINS', 'https://sgrhromas.netlify.app'),
-        'http://localhost:5173',
-    ],
+    'allowed_origins' => ['*'],   // ← autorise toutes les origines (mobile + web)
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
