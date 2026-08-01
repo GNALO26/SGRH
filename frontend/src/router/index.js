@@ -3,41 +3,39 @@ import { useAuthStore } from '@/store/auth'
 import Login from '@/views/Login.vue'
 import EmployeeLayout from '@/layouts/EmployeeLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
-import LandingPage from '@/views/LandingPage.vue' // Nouvelle landing page
 
 const routes = [
-  // Landing page (publique)
+  // ===================== LANDING PAGE (publiques) =====================
   {
     path: '/',
-    name: 'Landing',
-    component: LandingPage,
-    meta: { guest: true } // accessible sans authentification
-  },
-  // Routes d'authentification (guest)
-  {
-    path: '/login',
-    name: 'Login',
-    component: Login,
-    meta: { guest: true }
+    name: 'Home',
+    component: () => import('@/views/landing/HomePage.vue'),
+    meta: { guest: true },
   },
   {
-    path: '/forgot-password',
-    name: 'ForgotPassword',
-    component: () => import('@/views/ForgotPassword.vue'),
-    meta: { guest: true }
+    path: '/fonctionnalites',
+    name: 'Features',
+    component: () => import('@/views/landing/FeaturesPage.vue'),
+    meta: { guest: true },
   },
   {
-    path: '/reset-password',
-    name: 'ResetPassword',
-    component: () => import('@/views/ResetPassword.vue'),
-    meta: { guest: true }
+    path: '/telechargement',
+    name: 'Download',
+    component: () => import('@/views/landing/DownloadPage.vue'),
+    meta: { guest: true },
   },
-  // Routes employé (authentifiées)
+
+  // ===================== AUTH =====================
+  { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
+  { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
+
+  // ===================== EMPLOYÉ =====================
   {
     path: '/employee/explain-absence',
     name: 'ExplainAbsence',
     component: () => import('@/views/employee/ExplainAbsence.vue'),
-    meta: { requiresAuth: true, role: 'employee' }
+    meta: { requiresAuth: true, role: 'employee' },
   },
   {
     path: '/employee',
@@ -54,10 +52,11 @@ const routes = [
       { path: 'faq', name: 'FAQ', component: () => import('@/views/employee/FAQ.vue') },
       { path: 'profil', name: 'Profil', component: () => import('@/views/employee/Profil.vue') },
       { path: 'parametres', name: 'Parametres', component: () => import('@/views/employee/Parametres.vue') },
-      { path: 'unjustified-absences', name: 'UnjustifiedAbsences', component: () => import('@/views/employee/UnjustifiedAbsences.vue') }
+      { path: 'unjustified-absences', name: 'UnjustifiedAbsences', component: () => import('@/views/employee/UnjustifiedAbsences.vue') },
     ]
   },
-  // Routes administrateur (authentifiées)
+
+  // ===================== ADMIN =====================
   {
     path: '/admin',
     component: AdminLayout,
@@ -77,14 +76,14 @@ const routes = [
       { path: 'utilisateurs', name: 'Users', component: () => import('@/views/admin/Users.vue') },
       { path: 'logs', name: 'Logs', component: () => import('@/views/admin/Logs.vue') },
       { path: 'notifications', name: 'AdminNotifications', component: () => import('@/views/admin/Notifications.vue') },
-      { path: 'profil', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue') }
+      { path: 'profil', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue') },
     ]
-  }
+  },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 })
 
 router.beforeEach(async (to) => {
@@ -92,21 +91,30 @@ router.beforeEach(async (to) => {
 
   // Si la route nécessite une authentification
   if (to.matched.some(r => r.meta.requiresAuth)) {
+    // Si pas de token, on redirige vers login
     if (!auth.token) {
       return '/login'
     }
+
+    // Si on a un token mais pas encore l'utilisateur, on vérifie le token
     if (!auth.user) {
       const isValid = await auth.checkAuth()
       if (!isValid) {
+        // Token invalide, redirection vers login
         return '/login'
       }
     }
+
+    // Vérification du rôle
     if (to.meta.role && auth.user?.role !== to.meta.role) {
       return auth.user?.role === 'admin' ? '/admin' : '/employee'
     }
+
+    // Redirection si absences non justifiées (employé)
     if (auth.user?.role === 'employee' && auth.requiresExplanation && to.name !== 'ExplainAbsence') {
       return '/employee/explain-absence'
     }
+
     return true
   }
 
