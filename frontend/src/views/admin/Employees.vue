@@ -28,10 +28,22 @@
             <td class="p-3 dark:text-white">{{ emp.position || '-' }}</td>
             <td class="p-3 dark:text-white">{{ emp.department || '-' }}</td>
             <td class="p-3 dark:text-white">{{ emp.base_salary || '-' }}</td>
-            <td class="p-3 space-x-2">
-              <button @click="editEmployee(emp)" class="text-blue-600 hover:underline">Éditer</button>
-              <button @click="changePassword(emp)" class="text-yellow-600 hover:underline">Mot de passe</button>
-              <button @click="deleteEmployee(emp.id)" class="text-red-600 hover:underline">Supprimer</button>
+            <td class="p-3 relative">
+              <button @click="toggleMenu(emp.id)" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white focus:outline-none">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+              <!-- Menu déroulant -->
+              <div v-if="activeMenu === emp.id" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                <button @click="editEmployee(emp); activeMenu = null" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                  <i class="fas fa-edit text-blue-600"></i> Éditer
+                </button>
+                <button @click="changePassword(emp); activeMenu = null" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                  <i class="fas fa-key text-yellow-600"></i> Mot de passe
+                </button>
+                <button @click="deleteEmployee(emp.id); activeMenu = null" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                  <i class="fas fa-trash-alt text-red-600"></i> Supprimer
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -107,6 +119,11 @@ const form = ref({ name: '', email: '', password: '', matricule: '', position: '
 const submitting = ref(false)
 const showPassword = ref(false)
 const fieldErrors = reactive({})
+const activeMenu = ref(null)
+
+function toggleMenu(id) {
+  activeMenu.value = activeMenu.value === id ? null : id
+}
 
 async function fetchEmployees() {
   const { data } = await api.get('/admin/employees')
