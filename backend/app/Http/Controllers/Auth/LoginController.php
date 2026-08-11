@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Mail\TwoFactorCodeMail;
 use App\Services\AbsenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -25,35 +24,38 @@ class LoginController extends Controller
             ]);
         }
 
-        // Générer le code 2FA (si la colonne existe)
-        if (app()->environment() !== 'testing' && \Illuminate\Support\Facades\Schema::hasColumn('users', 'two_factor_code')) {
-            $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $user->update([
-                'two_factor_code'       => $code,
-                'two_factor_expires_at' => now()->addMinutes(2),
-            ]);
+        // === 2FA : seulement si tout est en place ===
+        $canSend2FA = \Illuminate\Support\Facades\Schema::hasColumn('users', 'two_factor_code')
+                      && class_exists(\App\Mail\TwoFactorCodeMail::class)
+                      && view()->exists('emails.two_factor_code');
 
-            // Envoyer le code par email
+        if ($canSend2FA) {
             try {
-                Mail::to($user->email)->send(new TwoFactorCodeMail($code));
-            } catch (\Exception $e) {
-                report($e);
-            }
+                $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $user->update([
+                    'two_factor_code'       => $code,
+                    'two_factor_expires_at' => now()->addMinutes(2),
+                ]);
 
-            return response()->json([
-                'requires_2fa' => true,
-                'email'        => $user->email,
-            ]);
+                Mail::to($user->email)->send(new \App\Mail\TwoFactorCodeMail($code));
+
+                return response()->json([
+                    'requires_2fa' => true,
+                    'email'        => $user->email,
+                ]);
+            } catch (\Throwable $e) {
+                report($e);
+                // si l'envoi échoue, on continue en mode normal (sans 2FA)
+            }
         }
 
-        // Si la table n'a pas encore les colonnes, on fait un login classique
+        // === Connexion classique (pas de 2FA) ===
         $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
         $user->update(['last_login_at' => now()]);
 
-        // Détection des absences
         try {
             app(AbsenceService::class)->detectAndCreateAbsences($user);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             report($e);
         }
 
