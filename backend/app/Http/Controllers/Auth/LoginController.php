@@ -4,10 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\AbsenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
@@ -24,53 +22,13 @@ class LoginController extends Controller
             ]);
         }
 
-        // === 2FA : seulement si tout est en place ===
-        $canSend2FA = \Illuminate\Support\Facades\Schema::hasColumn('users', 'two_factor_code')
-                      && class_exists(\App\Mail\TwoFactorCodeMail::class)
-                      && view()->exists('emails.two_factor_code');
-
-        if ($canSend2FA) {
-            try {
-                $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $user->update([
-                    'two_factor_code'       => $code,
-                    'two_factor_expires_at' => now()->addMinutes(2),
-                ]);
-
-                Mail::to($user->email)->send(new \App\Mail\TwoFactorCodeMail($code));
-
-                return response()->json([
-                    'requires_2fa' => true,
-                    'email'        => $user->email,
-                ]);
-            } catch (\Throwable $e) {
-                report($e);
-                // si l'envoi échoue, on continue en mode normal (sans 2FA)
-            }
-        }
-
-        // === Connexion classique (pas de 2FA) ===
+        // Connexion simple, sans 2FA, sans AbsenceService
         $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
         $user->update(['last_login_at' => now()]);
 
-        try {
-            app(AbsenceService::class)->detectAndCreateAbsences($user);
-        } catch (\Throwable $e) {
-            report($e);
-        }
-
-        $requiresExplanation = false;
-        $pendingAbsences     = [];
-        if ($user->role === 'employee') {
-            $pendingAbsences     = $user->unjustifiedAbsences()->where('status', 'pending')->get(['id','from_date','to_date']);
-            $requiresExplanation = $pendingAbsences->isNotEmpty();
-        }
-
         return response()->json([
-            'user'                 => $user,
-            'token'                => $token,
-            'requires_explanation' => $requiresExplanation,
-            'pending_absences'     => $pendingAbsences,
+            'user'  => $user,
+            'token' => $token,
         ]);
     }
 
