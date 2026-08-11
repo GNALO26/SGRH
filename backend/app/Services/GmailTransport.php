@@ -7,6 +7,8 @@ use Google\Service\Gmail;
 use Google\Service\Gmail\Message as GmailMessage;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\AbstractTransport;
+use Symfony\Component\Mime\Message as MimeMessage;
+use Illuminate\Support\Facades\Log;
 
 class GmailTransport extends AbstractTransport
 {
@@ -24,8 +26,12 @@ class GmailTransport extends AbstractTransport
         $this->client->refreshToken($refreshToken);
         $this->client->addScope(Gmail::MAIL_GOOGLE_COM);
 
-        // Force l'obtention d'un access token valide
-        $this->client->fetchAccessTokenWithRefreshToken($refreshToken);
+        try {
+            $this->client->fetchAccessTokenWithRefreshToken($refreshToken);
+        } catch (\Exception $e) {
+            Log::error('GmailTransport : impossible de rafraîchir le token', ['error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     protected function doSend(SentMessage $message): void
@@ -39,7 +45,12 @@ class GmailTransport extends AbstractTransport
         $msg = new GmailMessage();
         $msg->setRaw($encoded);
 
-        $service->users_messages->send($this->userEmail, $msg);
+        try {
+            $service->users_messages->send($this->userEmail, $msg);
+        } catch (\Exception $e) {
+            Log::error('GmailTransport : échec d\'envoi', ['error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     public function __toString(): string
