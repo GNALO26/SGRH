@@ -28,23 +28,22 @@ class User extends Authenticatable
         'last_login_at',
         'avatar_url',
         'fcm_token',
-        'two_factor_code',          // ← ajouté
-        'two_factor_expires_at',    // ← ajouté
+        // 'two_factor_code',        ← retiré temporairement
+        // 'two_factor_expires_at',  ← retiré temporairement
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
-        'two_factor_code',          // caché par sécurité
     ];
 
     protected function casts(): array
     {
         return [
-            'email_verified_at'     => 'datetime',
-            'password'              => 'hashed',
-            'last_login_at'         => 'datetime',
-            'two_factor_expires_at' => 'datetime',   // ← ajouté
+            'email_verified_at' => 'datetime',
+            'password'          => 'hashed',
+            'last_login_at'     => 'datetime',
+            // 'two_factor_expires_at' => 'datetime', ← retiré
         ];
     }
 
