@@ -12,7 +12,10 @@ class LoginController extends Controller
 {
     public function login(Request $request)
     {
-        $request->validate(['email' => 'required|email', 'password' => 'required']);
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required',
+        ]);
 
         $user = User::where('email', $request->email)->first();
 
@@ -22,7 +25,6 @@ class LoginController extends Controller
             ]);
         }
 
-        // Connexion simple, sans 2FA, sans AbsenceService
         $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
         $user->update(['last_login_at' => now()]);
 
@@ -32,7 +34,10 @@ class LoginController extends Controller
         ]);
     }
 
-    public function me(Request $request) { return response()->json($request->user()); }
+    public function me(Request $request)
+    {
+        return response()->json($request->user());
+    }
 
     public function logout(Request $request)
     {
