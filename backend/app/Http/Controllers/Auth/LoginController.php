@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Mail\TwoFactorCodeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
@@ -37,9 +38,10 @@ class LoginController extends Controller
         // Envoyer le code par email
         try {
             Mail::to($user->email)->send(new TwoFactorCodeMail($code));
+            Log::info('2FA code sent to ' . $user->email);
         } catch (\Throwable $e) {
-            report($e);
-            // Même si l'envoi échoue, on continue (le code est en base)
+            Log::error('2FA email failed: ' . $e->getMessage());
+            // On continue malgré l'échec (le code est en base)
         }
 
         return response()->json([
