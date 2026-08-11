@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\TwoFactorCodeMail;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
 class TwoFactorController extends Controller
 {
-    /**
-     * Vérifie le code soumis et renvoie le token Sanctum.
-     */
     public function verify(Request $request)
     {
         $request->validate([
@@ -19,7 +17,7 @@ class TwoFactorController extends Controller
             'code'  => 'required|string|size:6',
         ]);
 
-        $user = \App\Models\User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->first();
 
         if (!$user ||
             !$user->two_factor_code ||
@@ -29,13 +27,15 @@ class TwoFactorController extends Controller
             return response()->json(['message' => 'Code invalide ou expiré.'], 422);
         }
 
-        // Code correct : effacer les données 2FA et générer le token
+        // Code correct : effacer les données 2FA
         $user->update([
             'two_factor_code'       => null,
             'two_factor_expires_at' => null,
         ]);
 
+        // Générer le token final
         $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
+        $user->update(['last_login_at' => now()]);
 
         return response()->json([
             'user'  => $user,
@@ -43,14 +43,11 @@ class TwoFactorController extends Controller
         ]);
     }
 
-    /**
-     * Renvoie un nouveau code par email.
-     */
     public function resend(Request $request)
     {
         $request->validate(['email' => 'required|email']);
 
-        $user = \App\Models\User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->first();
         if (!$user) {
             return response()->json(['message' => 'Utilisateur introuvable.'], 404);
         }
@@ -61,7 +58,11 @@ class TwoFactorController extends Controller
             'two_factor_expires_at' => now()->addMinutes(2),
         ]);
 
-        Mail::to($user->email)->send(new TwoFactorCodeMail($code));
+        try {
+            Mail::to($user->email)->send(new TwoFactorCodeMail($code));
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json(['message' => 'Code renvoyé.']);
     }

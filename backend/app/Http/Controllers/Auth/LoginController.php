@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Mail\TwoFactorCodeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
@@ -25,19 +27,28 @@ class LoginController extends Controller
             ]);
         }
 
-        $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
-        $user->update(['last_login_at' => now()]);
+        // Générer le code 2FA
+        $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $user->update([
+            'two_factor_code'       => $code,
+            'two_factor_expires_at' => now()->addMinutes(2),
+        ]);
+
+        // Envoyer le code par email
+        try {
+            Mail::to($user->email)->send(new TwoFactorCodeMail($code));
+        } catch (\Throwable $e) {
+            report($e);
+            // Même si l'envoi échoue, on continue (le code est en base)
+        }
 
         return response()->json([
-            'user'  => $user,
-            'token' => $token,
+            'requires_2fa' => true,
+            'email'        => $user->email,
         ]);
     }
 
-    public function me(Request $request)
-    {
-        return response()->json($request->user());
-    }
+    public function me(Request $request) { return response()->json($request->user()); }
 
     public function logout(Request $request)
     {

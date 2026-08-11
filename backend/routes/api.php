@@ -1,100 +1,95 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/store/auth'
-import Login from '@/views/Login.vue'
-import EmployeeLayout from '@/layouts/EmployeeLayout.vue'
-import AdminLayout from '@/layouts/AdminLayout.vue'
+<?php
 
-const routes = [
-  // ===================== LANDING PAGE (publiques) =====================
-  { path: '/', name: 'Home', component: () => import('@/views/landing/HomePage.vue'), meta: { guest: true } },
-  { path: '/fonctionnalites', name: 'Features', component: () => import('@/views/landing/FeaturesPage.vue'), meta: { guest: true } },
-  { path: '/telechargement', name: 'Download', component: () => import('@/views/landing/DownloadPage.vue'), meta: { guest: true } },
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\{
+    DashboardController,
+    EmployeeController,
+    LeaveController as AdminLeaveController,
+    RetardAuthorizationController as AdminRetardAuthorizationController,
+    CompanySettingController,
+    AttendanceController as AdminAttendanceController,
+    UserController,
+    ActivityLogController,
+    StatisticsController,
+    DocumentController as AdminDocumentController,
+    UnjustifiedAbsenceController as AdminUnjustifiedAbsenceController,
+    HolidayController as AdminHolidayController,
+    AssistanceController as AdminAssistanceController,
+    AdminNotificationController,
+};
+use App\Http\Controllers\Employee\{
+    AttendanceController,
+    LeaveRequestController,
+    RetardAuthorizationController,
+    DashboardController as EmployeeDashboardController,
+    DocumentController as EmployeeDocumentController,
+    NotificationController,
+    AssistanceController as EmployeeAssistanceController,
+    UnjustifiedAbsenceController as EmployeeUnjustifiedAbsenceController,
+};
 
-  // ===================== AUTH =====================
-  { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
-  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
-  { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
-  { path: '/verify-2fa', name: 'TwoFactorVerify', component: () => import('@/views/TwoFactorVerify.vue'), meta: { guest: true } },
+// Authentification publique
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetCode']);
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 
-  // ===================== EMPLOYÉ =====================
-  {
-    path: '/employee/explain-absence',
-    name: 'ExplainAbsence',
-    component: () => import('@/views/employee/ExplainAbsence.vue'),
-    meta: { requiresAuth: true, role: 'employee' },
-  },
-  {
-    path: '/employee',
-    component: EmployeeLayout,
-    meta: { requiresAuth: true, role: 'employee' },
-    children: [
-      { path: '', name: 'EmployeeDashboard', component: () => import('@/views/employee/Dashboard.vue') },
-      { path: 'pointage', name: 'Pointage', component: () => import('@/views/employee/Pointage.vue') },
-      { path: 'presences', name: 'Presences', component: () => import('@/views/employee/Presences.vue') },
-      { path: 'demandes', name: 'Demandes', component: () => import('@/views/employee/Demandes.vue') },
-      { path: 'documents', name: 'Documents', component: () => import('@/views/employee/Documents.vue') },
-      { path: 'notifications', name: 'Notifications', component: () => import('@/views/employee/Notifications.vue') },
-      { path: 'assistance', name: 'Assistance', component: () => import('@/views/employee/Assistance.vue') },
-      { path: 'faq', name: 'FAQ', component: () => import('@/views/employee/FAQ.vue') },
-      { path: 'profil', name: 'Profil', component: () => import('@/views/employee/Profil.vue') },
-      { path: 'parametres', name: 'Parametres', component: () => import('@/views/employee/Parametres.vue') },
-      { path: 'unjustified-absences', name: 'UnjustifiedAbsences', component: () => import('@/views/employee/UnjustifiedAbsences.vue') },
-    ]
-  },
+// Routes 2FA (publiques)
+Route::post('/verify-2fa', [TwoFactorController::class, 'verify']);
+Route::post('/resend-2fa', [TwoFactorController::class, 'resend']);
 
-  // ===================== ADMIN =====================
-  {
-    path: '/admin',
-    component: AdminLayout,
-    meta: { requiresAuth: true, role: 'admin' },
-    children: [
-      { path: '', name: 'AdminDashboard', component: () => import('@/views/admin/Dashboard.vue') },
-      { path: 'employes', name: 'Employees', component: () => import('@/views/admin/Employees.vue') },
-      { path: 'pointages', name: 'AdminAttendances', component: () => import('@/views/admin/Attendances.vue') },
-      { path: 'conges', name: 'AdminLeaves', component: () => import('@/views/admin/Leaves.vue') },
-      { path: 'autorisations', name: 'AdminRetardAuths', component: () => import('@/views/admin/RetardAuthorizations.vue') },
-      { path: 'documents', name: 'AdminDocuments', component: () => import('@/views/admin/Documents.vue') },
-      { path: 'unjustified-absences', name: 'AdminUnjustifiedAbsences', component: () => import('@/views/admin/UnjustifiedAbsences.vue') },
-      { path: 'holidays', name: 'AdminHolidays', component: () => import('@/views/admin/HolidaysManagement.vue') },
-      { path: 'assistance', name: 'AdminAssistance', component: () => import('@/views/admin/AssistanceRequests.vue') },
-      { path: 'statistiques', name: 'Statistics', component: () => import('@/views/admin/Statistics.vue') },
-      { path: 'parametres', name: 'Settings', component: () => import('@/views/admin/Settings.vue') },
-      { path: 'utilisateurs', name: 'Users', component: () => import('@/views/admin/Users.vue') },
-      { path: 'logs', name: 'Logs', component: () => import('@/views/admin/Logs.vue') },
-      { path: 'notifications', name: 'AdminNotifications', component: () => import('@/views/admin/Notifications.vue') },
-      { path: 'profil', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue') },
-    ]
-  },
-]
+// Routes protégées par token Sanctum
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/me', [LoginController::class, 'me']);
+    Route::post('/logout', [LoginController::class, 'logout']);
+    Route::post('/user/avatar', [ProfileController::class, 'updateAvatar']);
+    Route::post('/fcm-token', [\App\Http\Controllers\Api\FcmTokenController::class, 'store']);
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-})
+    Route::get('/holidays', [AdminHolidayController::class, 'index']);
 
-router.beforeEach(async (to) => {
-  const auth = useAuthStore()
+    // ===================== ADMIN =====================
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/company-settings', [CompanySettingController::class, 'show']);
+        Route::put('/company-settings', [CompanySettingController::class, 'update']);
+        Route::apiResource('employees', EmployeeController::class);
+        Route::patch('/employees/{user}/password', [EmployeeController::class, 'updatePassword']);
+        Route::apiResource('leaves', AdminLeaveController::class)->only(['index', 'update']);
+        Route::apiResource('retard-authorizations', AdminRetardAuthorizationController::class)->only(['index', 'update']);
+        Route::get('/attendances', [AdminAttendanceController::class, 'index']);
+        Route::apiResource('documents', AdminDocumentController::class);
+        Route::apiResource('unjustified-absences', AdminUnjustifiedAbsenceController::class)->only(['index', 'show']);
+        Route::apiResource('holidays', AdminHolidayController::class)->except(['edit', 'update']);
+        Route::apiResource('users', UserController::class)->only(['index', 'store', 'destroy']);
+        Route::get('/logs', [ActivityLogController::class, 'index']);
+        Route::get('/statistics/monthly-late', [StatisticsController::class, 'monthlyLate']);
+        Route::get('/statistics/top-late', [StatisticsController::class, 'topLate']);
+        Route::get('/assistance-requests', [AdminAssistanceController::class, 'index']);
+        Route::patch('/assistance-requests/{assistanceRequest}/respond', [AdminAssistanceController::class, 'respond']);
+        Route::get('/notifications', [AdminNotificationController::class, 'index']);
+        Route::post('/notifications/read', [AdminNotificationController::class, 'markAsRead']);
+    });
 
-  if (to.matched.some(r => r.meta.requiresAuth)) {
-    if (!auth.token) return '/login'
-    if (!auth.user) {
-      const isValid = await auth.checkAuth()
-      if (!isValid) return '/login'
-    }
-    if (to.meta.role && auth.user?.role !== to.meta.role) {
-      return auth.user?.role === 'admin' ? '/admin' : '/employee'
-    }
-    if (auth.user?.role === 'employee' && auth.requiresExplanation && to.name !== 'ExplainAbsence') {
-      return '/employee/explain-absence'
-    }
-    return true
-  }
+    // ===================== EMPLOYÉ =====================
+    Route::middleware('role:employee')->prefix('employee')->group(function () {
+        Route::get('/dashboard', [EmployeeDashboardController::class, 'index']);
+        Route::post('/attendance', [AttendanceController::class, 'store']);
+        Route::get('/attendance/today', [AttendanceController::class, 'today']);
+        Route::get('/attendance/history', [AttendanceController::class, 'history']);
+        Route::get('/attendance/export', [AttendanceController::class, 'export']);
+        Route::apiResource('leaves', LeaveRequestController::class)->only(['index', 'store', 'destroy']);
+        Route::apiResource('retard-authorizations', RetardAuthorizationController::class)->only(['index', 'store', 'destroy']);
+        Route::get('/documents', [EmployeeDocumentController::class, 'index']);
+        Route::get('/unjustified-absences', [EmployeeUnjustifiedAbsenceController::class, 'index']);
+        Route::post('/unjustified-absences/{absence}/explain', [EmployeeUnjustifiedAbsenceController::class, 'explain']);
+        Route::apiResource('assistance', EmployeeAssistanceController::class)->only(['index', 'store']);
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/read', [NotificationController::class, 'markAsRead']);
+        Route::get('/calendar-events', [EmployeeDashboardController::class, 'calendarEvents']);
+    });
+});
 
-  if (to.matched.some(r => r.meta.guest) && auth.isAuthenticated) {
-    return auth.user?.role === 'admin' ? '/admin' : '/employee'
-  }
-
-  return true
-})
-
-export default router
+// Route interne pour la détection automatique des absences
+Route::get('/internal/trigger-absences', [\App\Http\Controllers\Internal\TriggerAbsencesController::class, '__invoke']);

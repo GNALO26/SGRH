@@ -28,13 +28,14 @@ class User extends Authenticatable
         'last_login_at',
         'avatar_url',
         'fcm_token',
-        // 'two_factor_code',        ← retiré temporairement
-        // 'two_factor_expires_at',  ← retiré temporairement
+        'two_factor_code',
+        'two_factor_expires_at',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_code',
     ];
 
     protected function casts(): array
@@ -43,7 +44,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
             'last_login_at'     => 'datetime',
-            // 'two_factor_expires_at' => 'datetime', ← retiré
+            'two_factor_expires_at' => 'datetime',
         ];
     }
 
