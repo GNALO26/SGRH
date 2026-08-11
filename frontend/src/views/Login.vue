@@ -13,7 +13,8 @@
             v-model="email"
             type="email"
             required
-            :class="['w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white', fieldErrors.email ? 'border-red-500 ring-1 ring-red-500' : '']"
+            class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+            :class="fieldErrors.email ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 dark:border-gray-600'"
             placeholder="vous@exemple.com"
           />
           <p v-if="fieldErrors.email" class="text-red-600 text-xs mt-1">{{ fieldErrors.email[0] }}</p>
@@ -57,21 +58,24 @@ async function handleLogin() {
   try {
     const result = await authStore.login({ email: email.value, password: password.value })
 
-    // Si la 2FA est requise
     if (result.requires2FA) {
       localStorage.setItem('2fa_email', result.email)
       router.push('/verify-2fa')
       return
     }
 
-    // Redirection normale
     router.push(authStore.user?.role === 'admin' ? '/admin' : '/employee')
   } catch (e) {
+    console.error('Erreur login:', e)
     if (e.response?.status === 422 && e.response.data?.fieldErrors) {
       fieldErrors.value = e.response.data.fieldErrors
       error.value = 'Merci de corriger les champs indiqués.'
+    } else if (e.response?.data?.message) {
+      error.value = e.response.data.message
+    } else if (e.message === 'Network Error') {
+      error.value = 'Erreur réseau. Vérifiez votre connexion ou contactez l\'administrateur.'
     } else {
-      error.value = e.response?.data?.message || 'Erreur de connexion. Vérifiez vos identifiants.'
+      error.value = 'Erreur de connexion. Vérifiez vos identifiants.'
     }
   } finally {
     loading.value = false
