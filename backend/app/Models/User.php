@@ -20,26 +20,31 @@ class User extends Authenticatable
         'company_longitude',
         'geofence_radius_meters',
         'official_opening_time',
-        'official_closing_time',   // ← ajouté
+        'official_closing_time',
         'base_salary',
         'matricule',
         'position',
         'department',
         'last_login_at',
         'avatar_url',
+        'fcm_token',
+        'two_factor_code',          // ← ajouté
+        'two_factor_expires_at',    // ← ajouté
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_code',          // caché par sécurité
     ];
 
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'last_login_at' => 'datetime',
+            'email_verified_at'     => 'datetime',
+            'password'              => 'hashed',
+            'last_login_at'         => 'datetime',
+            'two_factor_expires_at' => 'datetime',   // ← ajouté
         ];
     }
 

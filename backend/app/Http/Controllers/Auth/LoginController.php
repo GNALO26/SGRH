@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\AbsenceService;
+use App\Mail\TwoFactorCodeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
@@ -16,27 +17,31 @@ class LoginController extends Controller
         $request->validate(['email' => 'required|email', 'password' => 'required']);
 
         $user = User::where('email', $request->email)->first();
+
         if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages(['email' => ['Les identifiants fournis sont incorrects.']]);
+            throw ValidationException::withMessages([
+                'email' => ['Les identifiants fournis sont incorrects.'],
+            ]);
         }
 
-        $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
-        $user->update(['last_login_at' => now()]);
+        // Générer le code 2FA
+        $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $user->update([
+            'two_factor_code'       => $code,
+            'two_factor_expires_at' => now()->addMinutes(2),
+        ]);
 
-        $requiresExplanation = false;
-        $pendingAbsences     = [];
-
-        if ($user->role === 'employee') {
-            app(AbsenceService::class)->detectAndCreateAbsences($user);
-            $pendingAbsences     = $user->unjustifiedAbsences()->where('status', 'pending')->get(['id','from_date','to_date']);
-            $requiresExplanation = $pendingAbsences->isNotEmpty();
+        // Envoyer le code par email
+        try {
+            Mail::to($user->email)->send(new TwoFactorCodeMail($code));
+        } catch (\Exception $e) {
+            report($e);
         }
 
+        // Retourner une réponse indiquant que la 2FA est requise
         return response()->json([
-            'user'                 => $user,
-            'token'                => $token,
-            'requires_explanation' => $requiresExplanation,
-            'pending_absences'     => $pendingAbsences,
+            'requires_2fa' => true,
+            'email'        => $user->email,
         ]);
     }
 

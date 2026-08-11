@@ -9,24 +9,29 @@
       <form @submit.prevent="handleLogin">
         <div class="mb-4">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adresse email</label>
-          <input v-model="email" type="email" required :class="['w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white', fieldErrors.email ? 'border-red-500 ring-1 ring-red-500' : '']" placeholder="vous@exemple.com" />
+          <input
+            v-model="email"
+            type="email"
+            required
+            :class="['w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white', fieldErrors.email ? 'border-red-500 ring-1 ring-red-500' : '']"
+            placeholder="vous@exemple.com"
+          />
           <p v-if="fieldErrors.email" class="text-red-600 text-xs mt-1">{{ fieldErrors.email[0] }}</p>
         </div>
         <div class="mb-6">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mot de passe</label>
           <PasswordInput v-model="password" required placeholder="••••••••" :error="fieldErrors.password?.[0]" />
         </div>
-        <button type="submit" :disabled="loading" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+        <button
+          type="submit"
+          :disabled="loading"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
           <span v-else>Se connecter</span>
         </button>
         <p v-if="error" class="mt-4 text-red-600 text-sm text-center">{{ error }}</p>
       </form>
-      <div class="mt-4 text-center">
-        <router-link to="/forgot-password" class="text-blue-600 hover:underline text-sm">
-          Mot de passe oublié ?
-        </router-link>
-      </div>
     </div>
   </div>
 </template>
@@ -50,7 +55,16 @@ async function handleLogin() {
   error.value = ''
   fieldErrors.value = {}
   try {
-    await authStore.login({ email: email.value, password: password.value })
+    const result = await authStore.login({ email: email.value, password: password.value })
+
+    // Si la 2FA est requise
+    if (result.requires2FA) {
+      localStorage.setItem('2fa_email', result.email)
+      router.push('/verify-2fa')
+      return
+    }
+
+    // Redirection normale
     router.push(authStore.user?.role === 'admin' ? '/admin' : '/employee')
   } catch (e) {
     if (e.response?.status === 422 && e.response.data?.fieldErrors) {
