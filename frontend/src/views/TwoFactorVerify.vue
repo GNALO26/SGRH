@@ -8,7 +8,8 @@
       </div>
 
       <p class="text-center text-gray-600 dark:text-gray-300 mb-6">
-        Un code à 6 chiffres a été envoyé à <strong>{{ email }}</strong>. Il expire dans <strong>{{ timerDisplay }}</strong>.
+        Un code à 6 chiffres a été envoyé à <strong>{{ email }}</strong>.
+        Il expire dans <strong>{{ timerDisplay }}</strong>.
       </p>
 
       <form @submit.prevent="verifyCode">
@@ -60,13 +61,13 @@ import api from '@/api/axios'
 
 const router = useRouter()
 const auth = useAuthStore()
-
 const email = ref(localStorage.getItem('2fa_email') || '')
 const code = ref('')
 const loading = ref(false)
 const error = ref('')
+const resendCooldown = ref(0)
 
-// Compteur de 2 minutes
+// Compteur d'expiration (2 minutes)
 const expiresAt = ref(Date.now() + 120 * 1000)
 const timerDisplay = computed(() => {
   const diff = Math.max(0, Math.floor((expiresAt.value - Date.now()) / 1000))
@@ -83,9 +84,8 @@ onMounted(() => {
     return
   }
   timer = setInterval(() => {
-    if (Date.now() >= expiresAt.value) {
-      clearInterval(timer)
-    }
+    // force la réactivité
+    expiresAt.value = Date.now() + 120 * 1000 - (120 * 1000 - (expiresAt.value - Date.now()))
   }, 1000)
 })
 
@@ -104,14 +104,10 @@ async function verifyCode() {
       code: code.value,
     })
 
-    // Connexion réussie
     auth.token = data.token
     auth.user = data.user
     localStorage.setItem('token', data.token)
     localStorage.removeItem('2fa_email')
-    auth.requiresExplanation = false
-    auth.pendingAbsences = []
-
     router.push(auth.user?.role === 'admin' ? '/admin' : '/employee')
   } catch (e) {
     error.value = e.response?.data?.message || 'Code invalide ou expiré.'
@@ -133,14 +129,6 @@ async function resendCode() {
     error.value = ''
   } catch (e) {
     error.value = e.response?.data?.message || 'Erreur lors du renvoi.'
-  }
-}
-</script>
-
-<script>
-export default {
-  data() {
-    return { resendCooldown: 0 }
   }
 }
 </script>

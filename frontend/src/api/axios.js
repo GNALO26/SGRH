@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // Force l'URL absolue de l'API en production (Netlify → Render)
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://sgrh-x7a8.onrender.com/api',
+  baseURL: 'https://sgrh-x7a8.onrender.com/api',
   headers: { 'Accept': 'application/json' },
 });
 
@@ -26,11 +25,6 @@ api.interceptors.response.use(
     }
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // Ne pas rediriger ici, le routeur s'en charge
-    }
-    if (!error.response) {
-      // Erreur réseau
-      console.error('Erreur réseau :', error.message);
     }
     return Promise.reject(error);
   }

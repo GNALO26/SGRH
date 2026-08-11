@@ -14,14 +14,13 @@
             type="email"
             required
             class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-            :class="fieldErrors.email ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 dark:border-gray-600'"
+            :class="error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'"
             placeholder="vous@exemple.com"
           />
-          <p v-if="fieldErrors.email" class="text-red-600 text-xs mt-1">{{ fieldErrors.email[0] }}</p>
         </div>
         <div class="mb-6">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mot de passe</label>
-          <PasswordInput v-model="password" required placeholder="••••••••" :error="fieldErrors.password?.[0]" />
+          <PasswordInput v-model="password" required placeholder="••••••••" />
         </div>
         <button
           type="submit"
@@ -49,12 +48,10 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
-const fieldErrors = ref({})
 
 async function handleLogin() {
   loading.value = true
   error.value = ''
-  fieldErrors.value = {}
   try {
     const result = await authStore.login({ email: email.value, password: password.value })
 
@@ -67,10 +64,7 @@ async function handleLogin() {
     router.push(authStore.user?.role === 'admin' ? '/admin' : '/employee')
   } catch (e) {
     console.error('Erreur login:', e)
-    if (e.response?.status === 422 && e.response.data?.fieldErrors) {
-      fieldErrors.value = e.response.data.fieldErrors
-      error.value = 'Merci de corriger les champs indiqués.'
-    } else if (e.response?.data?.message) {
+    if (e.response?.data?.message) {
       error.value = e.response.data.message
     } else if (e.message === 'Network Error') {
       error.value = 'Erreur réseau. Vérifiez votre connexion ou contactez l\'administrateur.'

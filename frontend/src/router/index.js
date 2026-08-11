@@ -6,29 +6,16 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const routes = [
   // ===================== LANDING PAGE (publiques) =====================
-  {
-    path: '/',
-    name: 'Home',
-    component: () => import('@/views/landing/HomePage.vue'),
-    meta: { guest: true },
-  },
-  {
-    path: '/fonctionnalites',
-    name: 'Features',
-    component: () => import('@/views/landing/FeaturesPage.vue'),
-    meta: { guest: true },
-  },
-  {
-    path: '/telechargement',
-    name: 'Download',
-    component: () => import('@/views/landing/DownloadPage.vue'),
-    meta: { guest: true },
-  },
+  { path: '/', name: 'Home', component: () => import('@/views/landing/HomePage.vue'), meta: { guest: true } },
+  { path: '/fonctionnalites', name: 'Features', component: () => import('@/views/landing/FeaturesPage.vue'), meta: { guest: true } },
+  { path: '/telechargement', name: 'Download', component: () => import('@/views/landing/DownloadPage.vue'), meta: { guest: true } },
 
   // ===================== AUTH =====================
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
   { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
+  // 2FA
+  { path: '/verify-2fa', name: 'TwoFactorVerify', component: () => import('@/views/TwoFactorVerify.vue'), meta: { guest: true } },
 
   // ===================== EMPLOYÉ =====================
   {
@@ -89,36 +76,21 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // Si la route nécessite une authentification
   if (to.matched.some(r => r.meta.requiresAuth)) {
-    // Si pas de token, on redirige vers login
-    if (!auth.token) {
-      return '/login'
-    }
-
-    // Si on a un token mais pas encore l'utilisateur, on vérifie le token
+    if (!auth.token) return '/login'
     if (!auth.user) {
       const isValid = await auth.checkAuth()
-      if (!isValid) {
-        // Token invalide, redirection vers login
-        return '/login'
-      }
+      if (!isValid) return '/login'
     }
-
-    // Vérification du rôle
     if (to.meta.role && auth.user?.role !== to.meta.role) {
       return auth.user?.role === 'admin' ? '/admin' : '/employee'
     }
-
-    // Redirection si absences non justifiées (employé)
     if (auth.user?.role === 'employee' && auth.requiresExplanation && to.name !== 'ExplainAbsence') {
       return '/employee/explain-absence'
     }
-
     return true
   }
 
-  // Si la route est "guest" et qu'on est authentifié, on redirige vers le dashboard approprié
   if (to.matched.some(r => r.meta.guest) && auth.isAuthenticated) {
     return auth.user?.role === 'admin' ? '/admin' : '/employee'
   }

@@ -15,16 +15,13 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async login(credentials) {
       const { data } = await api.post('/login', credentials)
-      // Si la réponse contient requires_2fa, on ne stocke pas le token
       if (data.requires_2fa) {
         localStorage.setItem('2fa_email', data.email)
         return { requires2FA: true, email: data.email }
       }
-      // Sinon, connexion classique
+      // Fallback au cas où (ne devrait plus arriver)
       this.token = data.token
       this.user = data.user
-      this.requiresExplanation = data.requires_explanation || false
-      this.pendingAbsences = data.pending_absences || []
       localStorage.setItem('token', data.token)
       return data
     },
@@ -34,13 +31,8 @@ export const useAuthStore = defineStore('auth', {
     },
     async checkAuth() {
       if (!this.token) { this.logout(); return false }
-      try {
-        await this.fetchUser()
-        return true
-      } catch (e) {
-        this.logout()
-        return false
-      }
+      try { await this.fetchUser(); return true }
+      catch (e) { this.logout(); return false }
     },
     setRequiresExplanation(value) { this.requiresExplanation = value },
     logout() {
