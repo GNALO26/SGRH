@@ -32,6 +32,13 @@
         </button>
         <p v-if="error" class="mt-4 text-red-600 text-sm text-center">{{ error }}</p>
       </form>
+
+      <!-- Lien mot de passe oublié -->
+      <div class="mt-6 text-center">
+        <router-link to="/forgot-password" class="text-sm text-blue-600 hover:underline dark:text-blue-400">
+          Mot de passe oublié ?
+        </router-link>
+      </div>
     </div>
   </div>
 </template>
