@@ -10,16 +10,16 @@
       <form @submit.prevent="resetPassword">
         <div class="mb-3">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-          <input v-model="email" type="email" required class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" :disabled="loading" @keydown.enter="focusNext('code')" />
+          <input v-model="email" type="email" required class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" :disabled="loading" />
         </div>
         <div class="mb-3">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Code à 6 chiffres</label>
-          <input ref="codeInput" v-model="code" type="text" maxlength="6" required class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" :disabled="loading" placeholder="123456" @keydown.enter="focusNext('password')" />
+          <input v-model="code" type="text" maxlength="6" required class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" :disabled="loading" placeholder="123456" />
         </div>
         <div class="mb-3">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nouveau mot de passe</label>
           <div class="relative">
-            <input ref="passwordInput" v-model="password" :type="showPassword ? 'text' : 'password'" required class="w-full border rounded p-2 pr-10 dark:bg-gray-700 dark:text-white" :disabled="loading" @keydown.enter="focusNext('password_confirmation')" />
+            <input v-model="password" :type="showPassword ? 'text' : 'password'" required class="w-full border rounded p-2 pr-10 dark:bg-gray-700 dark:text-white" :disabled="loading" />
             <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600" tabindex="-1">
               <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
@@ -27,7 +27,7 @@
         </div>
         <div class="mb-4">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmer le mot de passe</label>
-          <input ref="passwordConfirmationInput" v-model="password_confirmation" type="password" required class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" :disabled="loading" @keydown.enter="resetPassword" />
+          <input v-model="password_confirmation" type="password" required class="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" :disabled="loading" />
         </div>
         <button type="submit" :disabled="loading" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
@@ -61,19 +61,7 @@ const message = ref('')
 const error = ref('')
 const showPassword = ref(false)
 
-// Références pour la navigation au clavier
-const codeInput = ref(null)
-const passwordInput = ref(null)
-const passwordConfirmationInput = ref(null)
-
-function focusNext(field) {
-  if (field === 'code' && codeInput.value) codeInput.value.focus()
-  else if (field === 'password' && passwordInput.value) passwordInput.value.focus()
-  else if (field === 'password_confirmation' && passwordConfirmationInput.value) passwordConfirmationInput.value.focus()
-}
-
 async function resetPassword() {
-  if (loading.value) return
   loading.value = true
   message.value = ''
   error.value = ''
