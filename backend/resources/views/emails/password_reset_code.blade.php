@@ -1,17 +1,34 @@
 <!DOCTYPE html>
-<html>
-<head><title>Réinitialisation de mot de passe - SGRH</title></head>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <title>Réinitialisation mot de passe SGRH</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9fafb; margin: 0; padding: 20px; }
+        .container { max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px 20px; text-align: center; }
+        .header img { height: 50px; margin-bottom: 10px; }
+        .header h1 { color: #ffffff; font-size: 22px; margin: 0; }
+        .body { padding: 30px 20px; text-align: center; }
+        .code { font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #1e40af; background: #f1f5f9; padding: 15px 25px; border-radius: 8px; display: inline-block; margin: 20px 0; }
+        .footer { background: #f8fafc; padding: 15px; text-align: center; font-size: 12px; color: #64748b; }
+    </style>
+</head>
 <body>
-    <div style="text-align:center; margin-bottom:20px;">
-        <img src="https://sgrhromas.netlify.app/logo-sgrh.png" alt="SGRH" style="height:60px;" />
-        <h1>SGRH - Réinitialisation de mot de passe</h1>
+    <div class="container">
+        <div class="header">
+            <img src="https://sgrhromas.netlify.app/logo-sgrh.png" alt="SGRH Logo" />
+            <h1>Réinitialisation de mot de passe</h1>
+        </div>
+        <div class="body">
+            <p>Bonjour,</p>
+            <p>Utilisez le code suivant pour réinitialiser votre mot de passe :</p>
+            <div class="code">{{ $code }}</div>
+            <p style="color: #475569; font-size: 14px;">Ce code expire dans <strong>10 minutes</strong>.</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ date('Y') }} SGRH. Tous droits réservés.</p>
+        </div>
     </div>
-    <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-    <p>Utilisez le code à 6 chiffres suivant :</p>
-    <h2 style="background:#f0f0f0;padding:10px;letter-spacing:5px;text-align:center;">{{ $code }}</h2>
-    <p>Ce code expire dans 10 minutes.</p>
-    <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
-    <hr />
-    <p style="font-size:small;color:#888;">© {{ date('Y') }} SGRH. Tous droits réservés.</p>
 </body>
 </html>

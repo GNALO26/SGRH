@@ -3,76 +3,59 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Mail\PasswordResetCode;
-use App\Models\PasswordReset;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class PasswordResetController extends Controller
 {
-    /**
-     * Envoie un code de réinitialisation à 6 chiffres par email.
-     */
     public function sendResetCode(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email|exists:users,email',
-        ], [
-            'email.exists' => 'Aucun compte trouvé avec cet email.',
-        ]);
+        $request->validate(['email' => 'required|email']);
 
-        $email = $request->email;
-        $code = random_int(100000, 999999);
-
-        PasswordReset::updateOrCreate(
-            ['email' => $email],
-            [
-                'code'       => $code,
-                'expires_at' => now()->addMinutes(10),
-            ]
-        );
-
-        try {
-            Mail::to($email)->send(new PasswordResetCode($code));
-        } catch (\Exception $e) {
-            report($e);
-            return response()->json(['message' => 'Erreur lors de l\'envoi de l\'email. Veuillez réessayer.'], 500);
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            return response()->json(['message' => 'Aucun compte trouvé avec cet email.'], 404);
         }
 
-        return response()->json(['message' => 'Un code à 6 chiffres a été envoyé à votre adresse email.']);
+        // Générer un code à 6 chiffres
+        $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $user->update([
+            'two_factor_code'       => $code,
+            'two_factor_expires_at' => now()->addMinutes(10),
+        ]);
+
+        // Envoyer le code par email
+        try {
+            Mail::to($user->email)->send(new \App\Mail\PasswordResetMail($code));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return response()->json(['message' => 'Un code de réinitialisation a été envoyé.']);
     }
 
-    /**
-     * Vérifie le code et réinitialise le mot de passe.
-     */
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'email'                 => 'required|email|exists:password_resets,email',
-            'code'                  => 'required|string|size:6',
-            'password'              => 'required|string|min:8|confirmed',
-        ], [
-            'email.exists'          => 'Code invalide ou expiré.',
-            'code.size'             => 'Le code doit comporter exactement 6 chiffres.',
-            'password.min'          => 'Le mot de passe doit faire au moins 8 caractères.',
-            'password.confirmed'    => 'Les mots de passe ne correspondent pas.',
+            'email'    => 'required|email',
+            'code'     => 'required|string|size:6',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $reset = PasswordReset::where('email', $request->email)
-            ->where('code', $request->code)
-            ->where('expires_at', '>', now())
-            ->first();
+        $user = User::where('email', $request->email)->first();
 
-        if (!$reset) {
+        if (!$user || $user->two_factor_code !== $request->code || now()->greaterThan($user->two_factor_expires_at)) {
             return response()->json(['message' => 'Code invalide ou expiré.'], 422);
         }
 
-        $user = User::where('email', $request->email)->first();
-        $user->update(['password' => Hash::make($request->password)]);
-
-        $reset->delete();
+        $user->update([
+            'password'               => Hash::make($request->password),
+            'two_factor_code'        => null,
+            'two_factor_expires_at'  => null,
+        ]);
 
         return response()->json(['message' => 'Mot de passe réinitialisé avec succès.']);
     }

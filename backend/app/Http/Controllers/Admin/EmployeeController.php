@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\EmployeeCreatedMail;
 use App\Models\User;
 use App\Services\ActivityService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\EmployeeCreatedMail;
 
 class EmployeeController extends Controller
 {
@@ -44,14 +44,14 @@ class EmployeeController extends Controller
 
         $employee = User::create($validated);
 
-        // Envoi d'email protégé
+        // Envoi de l'email de bienvenue (avec logo, identifiants)
         try {
             Mail::to($employee->email)->send(new EmployeeCreatedMail($employee, $plainPassword));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             report($e);
         }
 
-        // Log d'activité protégé
+        // Log d'activité
         try {
             $this->activityService->log(
                 request()->user(),
@@ -59,7 +59,7 @@ class EmployeeController extends Controller
                 "L'employé {$employee->name} a été créé.",
                 'fas fa-user-plus'
             );
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             report($e);
         }
 
@@ -111,7 +111,7 @@ class EmployeeController extends Controller
                 "L'employé {$employee->name} a été supprimé.",
                 'fas fa-user-minus'
             );
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             report($e);
         }
 
