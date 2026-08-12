@@ -22,10 +22,10 @@ class PasswordResetController extends Controller
         // Générer un code à 6 chiffres
         $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Stocker le code dans la colonne reset_code (ajoutée via la migration)
+        // Réutiliser les colonnes two_factor_code et two_factor_expires_at
         $user->update([
-            'reset_code'            => $code,
-            'reset_code_expires_at' => now()->addMinutes(10),
+            'two_factor_code'       => $code,
+            'two_factor_expires_at' => now()->addMinutes(10),
         ]);
 
         // Envoyer le code par email
@@ -50,16 +50,16 @@ class PasswordResetController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user ||
-            $user->reset_code !== $request->code ||
-            now()->greaterThan($user->reset_code_expires_at)
+            $user->two_factor_code !== $request->code ||
+            now()->greaterThan($user->two_factor_expires_at)
         ) {
             return response()->json(['message' => 'Code invalide ou expiré.'], 422);
         }
 
         $user->update([
-            'password'              => Hash::make($request->password),
-            'reset_code'            => null,
-            'reset_code_expires_at' => null,
+            'password'               => Hash::make($request->password),
+            'two_factor_code'        => null,
+            'two_factor_expires_at'  => null,
         ]);
 
         return response()->json(['message' => 'Mot de passe réinitialisé avec succès.']);
