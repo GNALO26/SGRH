@@ -1,7 +1,6 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-950 dark:to-gray-900 p-4">
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md">
-      <!-- Logo -->
       <div class="text-center mb-8">
         <img src="/logo-sgrh.png" alt="SGRH" class="h-14 mx-auto mb-3" />
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mot de passe oublié</h1>

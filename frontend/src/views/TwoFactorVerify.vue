@@ -103,7 +103,6 @@ const error = ref('')
 const resendCooldown = ref(0)
 const showOptions = ref(false)
 
-// Durée de vie : 2 minutes
 const totalSeconds = 120
 const remainingSeconds = ref(totalSeconds)
 const timerDisplay = computed(() => {
@@ -113,7 +112,6 @@ const timerDisplay = computed(() => {
 })
 const isOtpComplete = computed(() => otpValues.value.every(v => v !== ''))
 
-// Email masqué
 const maskedEmail = computed(() => {
   if (!email.value) return ''
   const [name, domain] = email.value.split('@')
@@ -136,7 +134,6 @@ function stopTimer() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null }
 }
 
-// Gestion des inputs OTP
 function handleOtpInput(index) {
   const val = otpValues.value[index]
   if (val && val.length === 1 && index < 5) {
@@ -160,7 +157,6 @@ function handlePaste(e) {
   }
 }
 
-// Vérification du code
 async function verifyCode() {
   if (!isOtpComplete.value) return
   loading.value = true
@@ -175,7 +171,6 @@ async function verifyCode() {
     router.push(auth.user?.role === 'admin' ? '/admin' : '/employee')
   } catch (e) {
     error.value = e.response?.data?.message || 'Code invalide ou expiré.'
-    // Vider les cases
     otpValues.value = ['', '', '', '', '', '']
     otpRefs.value[0]?.focus()
   } finally {
@@ -183,7 +178,6 @@ async function verifyCode() {
   }
 }
 
-// Renvoyer le code
 async function resendCode() {
   if (resendCooldown.value > 0) return
   try {
