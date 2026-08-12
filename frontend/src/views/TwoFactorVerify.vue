@@ -9,7 +9,11 @@
 
       <p class="text-center text-gray-600 dark:text-gray-300 mb-6">
         Un code à 6 chiffres a été envoyé à <strong>{{ email }}</strong>.
-        Il expire dans <strong>{{ timerDisplay }}</strong>.
+        <br />
+        <span v-if="remainingSeconds > 0" class="text-sm">
+          Il expire dans <strong>{{ timerDisplay }}</strong>.
+        </span>
+        <span v-else class="text-red-500 font-semibold">Le code a expiré.</span>
       </p>
 
       <form @submit.prevent="verifyCode">
@@ -30,8 +34,8 @@
 
         <button
           type="submit"
-          :disabled="loading"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+          :disabled="loading || remainingSeconds <= 0"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
           <span v-else>Vérifier</span>
@@ -62,34 +66,55 @@ import api from '@/api/axios'
 const router = useRouter()
 const auth = useAuthStore()
 const email = ref(localStorage.getItem('2fa_email') || '')
+
 const code = ref('')
 const loading = ref(false)
 const error = ref('')
 const resendCooldown = ref(0)
 
-// Compteur d'expiration (2 minutes)
-const expiresAt = ref(Date.now() + 120 * 1000)
+// Durée de vie du code : 2 minutes = 120 secondes
+const totalSeconds = 120
+const remainingSeconds = ref(totalSeconds)
+
+// Affichage formaté mm:ss
 const timerDisplay = computed(() => {
-  const diff = Math.max(0, Math.floor((expiresAt.value - Date.now()) / 1000))
-  const min = Math.floor(diff / 60)
-  const sec = diff % 60
+  const min = Math.floor(remainingSeconds.value / 60)
+  const sec = remainingSeconds.value % 60
   return `${min}:${sec.toString().padStart(2, '0')}`
 })
 
-let timer = null
+let timerInterval = null
+
+// Décrémenter le compteur chaque seconde
+function startTimer() {
+  stopTimer()
+  timerInterval = setInterval(() => {
+    if (remainingSeconds.value > 0) {
+      remainingSeconds.value--
+    } else {
+      stopTimer()
+    }
+  }, 1000)
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
+}
 
 onMounted(() => {
   if (!email.value) {
     router.push('/login')
     return
   }
-  timer = setInterval(() => {
-    // force la réactivité
-    expiresAt.value = Date.now() + 120 * 1000 - (120 * 1000 - (expiresAt.value - Date.now()))
-  }, 1000)
+  startTimer()
 })
 
-onUnmounted(() => clearInterval(timer))
+onUnmounted(() => {
+  stopTimer()
+})
 
 async function verifyCode() {
   if (!code.value || code.value.length !== 6) {
@@ -120,11 +145,14 @@ async function resendCode() {
   if (resendCooldown.value > 0) return
   try {
     await api.post('/resend-2fa', { email: email.value })
-    expiresAt.value = Date.now() + 120 * 1000
+    // Réinitialiser le compteur
+    remainingSeconds.value = totalSeconds
+    startTimer()
+    // Cooldown de 30 secondes pour éviter le spam
     resendCooldown.value = 30
-    const interval = setInterval(() => {
+    const cooldownInterval = setInterval(() => {
       resendCooldown.value--
-      if (resendCooldown.value <= 0) clearInterval(interval)
+      if (resendCooldown.value <= 0) clearInterval(cooldownInterval)
     }, 1000)
     error.value = ''
   } catch (e) {
