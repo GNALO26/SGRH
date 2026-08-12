@@ -30,14 +30,16 @@
         />
       </div>
 
-      <!-- Lien Renvoyer -->
-      <button
-        @click="resendCode"
-        :disabled="resendCooldown > 0 || loading"
-        class="otp-resend"
-      >
-        {{ resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : 'Renvoyer' }}
-      </button>
+      <!-- Lien Renvoyer aligné à gauche -->
+      <div class="otp-resend-container">
+        <button
+          @click="resendCode"
+          :disabled="resendCooldown > 0 || loading"
+          class="otp-resend"
+        >
+          {{ resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : 'Renvoyer' }}
+        </button>
+      </div>
 
       <!-- Erreur -->
       <p v-if="error" class="otp-error">{{ error }}</p>
@@ -265,6 +267,11 @@ onUnmounted(() => stopTimer())
   border-color: #ef4444 !important;
 }
 
+.otp-resend-container {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
 .otp-resend {
   background: none;
   border: none;
@@ -272,7 +279,6 @@ onUnmounted(() => stopTimer())
   font-size: 14px;
   text-decoration: underline;
   cursor: pointer;
-  margin-bottom: 20px;
 }
 
 .otp-resend:disabled {
