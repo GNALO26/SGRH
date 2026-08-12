@@ -1,37 +1,28 @@
 <template>
-  <div class="page-container">
-    <div class="card">
-      <div class="logo">
-        <img src="/logo-sgrh.png" alt="SGRH" />
-      </div>
-      <h1 class="title">Mot de passe oublié</h1>
-      <p class="instruction">Saisissez votre email pour recevoir un code de réinitialisation</p>
+  <div class="forgot-page">
+    <div class="forgot-card">
+      <h1 class="forgot-title">Mot de passe oublié</h1>
+      <p class="forgot-subtitle">Saisissez votre email pour recevoir un code de réinitialisation</p>
 
-      <form @submit.prevent="sendCode" class="form">
-        <div class="form-group">
-          <label class="label">Adresse email</label>
-          <input
-            v-model="email"
-            type="email"
-            required
-            class="input"
-            :class="error ? 'input-error' : ''"
-            placeholder="vous@exemple.com"
-          />
-        </div>
-
-        <button type="submit" class="btn-primary" :disabled="loading">
+      <form @submit.prevent="sendCode">
+        <input
+          v-model="email"
+          type="email"
+          required
+          class="forgot-input"
+          placeholder="vous@exemple.com"
+        />
+        <button type="submit" :disabled="loading" class="forgot-btn">
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
           <span v-else>Envoyer le code</span>
         </button>
-
-        <p v-if="error" class="error-message">{{ error }}</p>
-        <p v-if="success" class="success-message">{{ success }}</p>
+        <p v-if="error" class="forgot-error">{{ error }}</p>
+        <p v-if="success" class="forgot-success">{{ success }}</p>
       </form>
 
-      <div class="back-link">
-        <router-link to="/login">Retour à la connexion</router-link>
-      </div>
+      <router-link to="/login" class="forgot-link">
+        <i class="fas fa-arrow-left mr-1"></i>Retour à la connexion
+      </router-link>
     </div>
   </div>
 </template>
@@ -62,7 +53,7 @@ async function sendCode() {
 </script>
 
 <style scoped>
-.page-container {
+.forgot-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -72,120 +63,87 @@ async function sendCode() {
   padding: 20px;
 }
 
-.card {
+.forgot-card {
   background: #ffffff;
   max-width: 480px;
   width: 100%;
   padding: 40px;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.10);
   text-align: center;
 }
 
-.logo img {
-  height: 50px;
-  margin-bottom: 20px;
-}
-
-.title {
-  font-size: 24px;
-  font-weight: 700;
+.forgot-title {
+  font-size: 22px;
+  font-weight: 800;
   color: #111827;
   margin: 0 0 8px 0;
 }
 
-.instruction {
-  font-size: 16px;
+.forgot-subtitle {
+  font-size: 14px;
   color: #6b7280;
   margin: 0 0 24px 0;
 }
 
-.form {
-  text-align: left;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 8px;
-}
-
-.input {
+.forgot-input {
   width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #d1d5db;
-  border-radius: 12px;
-  background: #f9fafb;
+  padding: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   font-size: 16px;
+  background: #f9fafb;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
 }
 
-.input:focus {
+.forgot-input:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
 }
 
-.input-error {
-  border-color: #ef4444;
-}
-
-.btn-primary {
+.forgot-btn {
   width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 9999px;
   background-color: #2563eb;
   color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 14px;
   font-weight: 600;
   font-size: 16px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: background-color 0.2s;
 }
 
-.btn-primary:hover:not(:disabled) {
+.forgot-btn:hover:not(:disabled) {
   background-color: #1d4ed8;
 }
 
-.btn-primary:disabled {
+.forgot-btn:disabled {
   background-color: #d1d5db;
   cursor: not-allowed;
 }
 
-.error-message {
+.forgot-error {
   color: #ef4444;
   font-size: 14px;
   margin-top: 12px;
 }
 
-.success-message {
+.forgot-success {
   color: #10b981;
   font-size: 14px;
   margin-top: 12px;
 }
 
-.back-link {
+.forgot-link {
+  display: inline-block;
   margin-top: 24px;
-  text-align: center;
-}
-
-.back-link a {
   color: #2563eb;
-  text-decoration: none;
   font-size: 14px;
+  text-decoration: none;
 }
 
-.back-link a:hover {
+.forgot-link:hover {
   text-decoration: underline;
 }
 </style>

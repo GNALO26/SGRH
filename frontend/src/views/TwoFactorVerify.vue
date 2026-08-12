@@ -1,69 +1,68 @@
 <template>
-  <div class="page-container">
-    <div class="card">
-      <!-- Logo SGRH -->
-      <div class="logo">
-        <img src="/logo-sgrh.png" alt="SGRH" />
-      </div>
-
-      <!-- Texte principal -->
-      <p class="instruction">
-        Saisissez le code que nous vous avons envoyé par email
-      </p>
-
+  <div class="otp-page">
+    <div class="otp-card">
+      <!-- Titre -->
+      <h1 class="otp-title">Saisissez le code que nous vous avons envoyé par email</h1>
       <!-- Email masqué -->
-      <p class="email-masked">{{ maskedEmail }}</p>
+      <p class="otp-email">{{ maskedEmail }}</p>
 
       <!-- Timer -->
-      <p class="timer">
+      <p class="otp-timer">
         <span v-if="remainingSeconds > 0">Expire dans <strong>{{ timerDisplay }}</strong></span>
-        <span v-else>Le code a expiré</span>
+        <span v-else class="text-red-500">Le code a expiré</span>
       </p>
 
-      <!-- Champ OTP unique -->
-      <input
-        ref="otpInput"
-        v-model="code"
-        type="text"
-        inputmode="numeric"
-        maxlength="6"
-        autocomplete="one-time-code"
-        placeholder="000000"
-        class="otp-input"
-        :class="error ? 'otp-input-error' : ''"
-        @input="handleCodeInput"
-        @paste.prevent="handlePaste"
-      />
+      <!-- Champs OTP -->
+      <div class="otp-inputs">
+        <input
+          v-for="(digit, index) in 6"
+          :key="index"
+          :ref="el => otpRefs[index] = el"
+          v-model="otpValues[index]"
+          type="text"
+          inputmode="numeric"
+          maxlength="1"
+          class="otp-input"
+          :class="{ 'otp-input--error': error }"
+          @input="handleOtpInput(index)"
+          @keydown.backspace="handleBackspace(index)"
+          @paste.prevent="handlePaste"
+        />
+      </div>
 
-      <!-- Message d'erreur -->
-      <p v-if="error" class="error-message">{{ error }}</p>
-
-      <!-- Bouton Envoyer -->
+      <!-- Lien Renvoyer -->
       <button
-        class="btn-primary"
-        :disabled="loading || remainingSeconds <= 0 || !isOtpComplete"
+        @click="resendCode"
+        :disabled="resendCooldown > 0 || loading"
+        class="otp-resend"
+      >
+        {{ resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : 'Renvoyer' }}
+      </button>
+
+      <!-- Erreur -->
+      <p v-if="error" class="otp-error">{{ error }}</p>
+
+      <!-- Boutons d'action -->
+      <button
         @click="verifyCode"
+        :disabled="loading || remainingSeconds <= 0 || !isOtpComplete"
+        class="otp-btn-primary"
       >
         <i v-if="loading" class="fas fa-spinner fa-spin"></i>
         <span v-else>Envoyer</span>
       </button>
 
-      <!-- Renvoyer -->
       <button
-        class="btn-secondary"
-        :disabled="resendCooldown > 0 || loading"
-        @click="resendCode"
+        @click="showOptions = !showOptions"
+        class="otp-btn-secondary"
       >
-        {{ resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : 'Renvoyer le code' }}
+        Plus d'options
       </button>
 
-      <!-- Plus d'options -->
-      <div class="options-container">
-        <button class="options-toggle" @click="showOptions = !showOptions">… Plus d'options</button>
-        <div v-if="showOptions" class="options-dropdown">
-          <button class="dropdown-item" @click="goToLogin">Retour à la connexion</button>
-          <a class="dropdown-item" href="mailto:alfredsossa17@gmail.com">Contacter le support</a>
-        </div>
+      <!-- Dropdown Plus d'options -->
+      <div v-if="showOptions" class="otp-options">
+        <button @click="goToLogin" class="otp-option-item">Retour à la connexion</button>
+        <a href="mailto:alfredsossa17@gmail.com" class="otp-option-item">Contacter le support</a>
       </div>
     </div>
   </div>
@@ -79,8 +78,8 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const email = ref(localStorage.getItem('2fa_email') || '')
-const code = ref('')
-const otpInput = ref(null)
+const otpValues = ref(['', '', '', '', '', ''])
+const otpRefs = ref([])
 const loading = ref(false)
 const error = ref('')
 const resendCooldown = ref(0)
@@ -88,21 +87,17 @@ const showOptions = ref(false)
 
 const totalSeconds = 120
 const remainingSeconds = ref(totalSeconds)
-
 const timerDisplay = computed(() => {
   const min = Math.floor(remainingSeconds.value / 60)
   const sec = remainingSeconds.value % 60
   return `${min}:${sec.toString().padStart(2, '0')}`
 })
-
-const isOtpComplete = computed(() => code.value.length === 6)
+const isOtpComplete = computed(() => otpValues.value.every(v => v !== ''))
 
 const maskedEmail = computed(() => {
   if (!email.value) return ''
   const [name, domain] = email.value.split('@')
-  const maskedName = name.length > 2
-    ? name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
-    : name[0] + '*'.repeat(name.length - 1)
+  const maskedName = name.length > 2 ? name[0] + '*'.repeat(name.length - 2) + name[name.length - 1] : name[0] + '*'.repeat(name.length - 1)
   return `${maskedName}@${domain}`
 })
 
@@ -118,19 +113,30 @@ function startTimer() {
 }
 
 function stopTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval)
-    timerInterval = null
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null }
+}
+
+function handleOtpInput(index) {
+  const val = otpValues.value[index]
+  if (val && val.length === 1 && index < 5) {
+    otpRefs.value[index + 1]?.focus()
   }
 }
 
-function handleCodeInput() {
-  code.value = code.value.replace(/\D/g, '').slice(0, 6)
+function handleBackspace(index) {
+  if (otpValues.value[index] === '' && index > 0) {
+    otpRefs.value[index - 1]?.focus()
+  }
 }
 
 function handlePaste(e) {
   const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-  code.value = paste
+  if (paste.length === 6) {
+    for (let i = 0; i < 6; i++) {
+      otpValues.value[i] = paste[i] || ''
+    }
+    otpRefs.value[5]?.focus()
+  }
 }
 
 async function verifyCode() {
@@ -138,7 +144,8 @@ async function verifyCode() {
   loading.value = true
   error.value = ''
   try {
-    const { data } = await api.post('/verify-2fa', { email: email.value, code: code.value })
+    const code = otpValues.value.join('')
+    const { data } = await api.post('/verify-2fa', { email: email.value, code })
     auth.token = data.token
     auth.user = data.user
     localStorage.setItem('token', data.token)
@@ -146,8 +153,8 @@ async function verifyCode() {
     router.push(auth.user?.role === 'admin' ? '/admin' : '/employee')
   } catch (e) {
     error.value = e.response?.data?.message || 'Code invalide ou expiré.'
-    code.value = ''
-    otpInput.value?.focus()
+    otpValues.value = ['', '', '', '', '', '']
+    otpRefs.value[0]?.focus()
   } finally {
     loading.value = false
   }
@@ -180,14 +187,14 @@ onMounted(() => {
     return
   }
   startTimer()
-  nextTick(() => otpInput.value?.focus())
+  nextTick(() => otpRefs.value[0]?.focus())
 })
 
 onUnmounted(() => stopTimer())
 </script>
 
 <style scoped>
-.page-container {
+.otp-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -197,7 +204,7 @@ onUnmounted(() => stopTimer())
   padding: 20px;
 }
 
-.card {
+.otp-card {
   background: #ffffff;
   max-width: 480px;
   width: 100%;
@@ -207,157 +214,140 @@ onUnmounted(() => stopTimer())
   text-align: center;
 }
 
-.logo img {
-  height: 50px;
-  margin-bottom: 20px;
-}
-
-.instruction {
-  font-size: 16px;
-  color: #6b7280;
+.otp-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111827;
   margin: 0 0 8px 0;
+  line-height: 1.3;
 }
 
-.email-masked {
+.otp-email {
   font-size: 14px;
-  color: #374151;
+  color: #6b7280;
   margin: 0 0 16px 0;
 }
 
-.timer {
+.otp-timer {
   font-size: 14px;
   color: #6b7280;
-  margin: 0 0 24px 0;
+  margin: 0 0 20px 0;
 }
 
-.timer strong {
-  color: #2563eb;
+.otp-inputs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .otp-input {
-  width: 280px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   text-align: center;
   font-size: 24px;
   font-weight: bold;
-  letter-spacing: 1.5em;
-  text-indent: 1.5em;
-  font-family: monospace;
-  border: 2px solid #d1d5db;
+  border: 2px solid transparent;
   border-radius: 12px;
   background: #f9fafb;
   color: #111827;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  margin-bottom: 24px;
+  transition: all 0.2s;
 }
 
 .otp-input:focus {
   border-color: #2563eb;
+  background: #ffffff;
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
 }
 
-.otp-input-error {
-  border-color: #ef4444;
+.otp-input--error {
+  border-color: #ef4444 !important;
 }
 
-.error-message {
+.otp-resend {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.otp-resend:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.otp-error {
   color: #ef4444;
   font-size: 14px;
-  margin: 0 0 16px 0;
+  margin-bottom: 16px;
 }
 
-.btn-primary {
+.otp-btn-primary,
+.otp-btn-secondary {
+  display: block;
   width: 100%;
-  background-color: #2563eb;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
   padding: 14px;
+  border-radius: 9999px;
   font-weight: 600;
   font-size: 16px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  margin-bottom: 12px;
 }
 
-.btn-primary:hover:not(:disabled) {
+.otp-btn-primary {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+}
+
+.otp-btn-primary:hover:not(:disabled) {
   background-color: #1d4ed8;
 }
 
-.btn-primary:disabled {
+.otp-btn-primary:disabled {
   background-color: #d1d5db;
   cursor: not-allowed;
 }
 
-.btn-secondary {
-  width: 100%;
-  background: transparent;
-  border: 1px solid #2563eb;
+.otp-btn-secondary {
+  background-color: #ffffff;
   color: #2563eb;
-  border-radius: 8px;
-  padding: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  margin-top: 12px;
+  border: 1px solid #d1d5db;
 }
 
-.btn-secondary:hover:not(:disabled) {
-  background-color: #eff6ff;
+.otp-btn-secondary:hover {
+  background-color: #f3f4f6;
 }
 
-.btn-secondary:disabled {
-  border-color: #d1d5db;
-  color: #d1d5db;
-  cursor: not-allowed;
-}
-
-.options-container {
+.otp-options {
   position: relative;
-  margin-top: 24px;
-}
-
-.options-toggle {
-  background: none;
-  border: none;
-  color: #9ca3af;
-  font-size: 14px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.options-dropdown {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  margin-top: 8px;
   background: #ffffff;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   padding: 8px;
-  min-width: 200px;
 }
 
-.dropdown-item {
+.otp-option-item {
   display: block;
   width: 100%;
   text-align: left;
   background: none;
   border: none;
-  padding: 8px 12px;
+  padding: 10px 16px;
   font-size: 14px;
   color: #374151;
+  text-decoration: none;
   cursor: pointer;
   border-radius: 8px;
-  text-decoration: none;
 }
 
-.dropdown-item:hover {
+.otp-option-item:hover {
   background-color: #f3f4f6;
 }
 </style>

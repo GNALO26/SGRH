@@ -1,84 +1,49 @@
 <template>
-  <div class="page-container">
-    <div class="card">
-      <div class="logo">
-        <img src="/logo-sgrh.png" alt="SGRH" />
-      </div>
-      <h1 class="title">Nouveau mot de passe</h1>
-      <p class="instruction">Saisissez le code reçu par email et votre nouveau mot de passe</p>
+  <div class="reset-page">
+    <div class="reset-card">
+      <h1 class="reset-title">Nouveau mot de passe</h1>
+      <p class="reset-subtitle">Saisissez le code reçu et votre nouveau mot de passe</p>
 
-      <form @submit.prevent="resetPassword" class="form">
-        <div class="form-group">
-          <label class="label">Email</label>
-          <input
-            v-model="email"
-            type="email"
-            required
-            class="input"
-            :class="error ? 'input-error' : ''"
-          />
+      <form @submit.prevent="resetPassword" class="reset-form">
+        <div class="reset-field">
+          <label>Email</label>
+          <input v-model="email" type="email" required />
         </div>
-
-        <div class="form-group">
-          <label class="label">Code à 6 chiffres</label>
-          <input
-            v-model="code"
-            type="text"
-            maxlength="6"
-            inputmode="numeric"
-            required
-            class="input code-input"
-            :class="error ? 'input-error' : ''"
-            placeholder="000000"
-          />
+        <div class="reset-field">
+          <label>Code à 6 chiffres</label>
+          <input v-model="code" type="text" maxlength="6" inputmode="numeric" required />
         </div>
-
-        <div class="form-group">
-          <label class="label">Nouveau mot de passe</label>
-          <div class="password-wrapper">
-            <input
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              required
-              class="input"
-              :class="error ? 'input-error' : ''"
-              placeholder="••••••••"
-            />
-            <button type="button" class="password-toggle" @click="showPassword = !showPassword" tabindex="-1">
+        <div class="reset-field">
+          <label>Nouveau mot de passe</label>
+          <div class="relative">
+            <input v-model="password" :type="showPassword ? 'text' : 'password'" required />
+            <button type="button" @click="showPassword = !showPassword" class="eye-btn">
               <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
           </div>
         </div>
-
-        <div class="form-group">
-          <label class="label">Confirmer le mot de passe</label>
-          <div class="password-wrapper">
-            <input
-              v-model="passwordConfirmation"
-              :type="showConfirmPassword ? 'text' : 'password'"
-              required
-              class="input"
-              :class="error ? 'input-error' : ''"
-              placeholder="••••••••"
-            />
-            <button type="button" class="password-toggle" @click="showConfirmPassword = !showConfirmPassword" tabindex="-1">
+        <div class="reset-field">
+          <label>Confirmer le mot de passe</label>
+          <div class="relative">
+            <input v-model="passwordConfirmation" :type="showConfirmPassword ? 'text' : 'password'" required />
+            <button type="button" @click="showConfirmPassword = !showConfirmPassword" class="eye-btn">
               <i :class="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
           </div>
         </div>
 
-        <button type="submit" class="btn-primary" :disabled="loading">
+        <button type="submit" :disabled="loading" class="reset-btn">
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
           <span v-else>Réinitialiser</span>
         </button>
 
-        <p v-if="error" class="error-message">{{ error }}</p>
-        <p v-if="success" class="success-message">{{ success }}</p>
+        <p v-if="error" class="reset-error">{{ error }}</p>
+        <p v-if="success" class="reset-success">{{ success }}</p>
       </form>
 
-      <div class="back-link">
-        <router-link to="/login">Retour à la connexion</router-link>
-      </div>
+      <router-link to="/login" class="reset-link">
+        <i class="fas fa-arrow-left mr-1"></i>Retour à la connexion
+      </router-link>
     </div>
   </div>
 </template>
@@ -121,7 +86,7 @@ async function resetPassword() {
 </script>
 
 <style scoped>
-.page-container {
+.reset-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -131,83 +96,63 @@ async function resetPassword() {
   padding: 20px;
 }
 
-.card {
+.reset-card {
   background: #ffffff;
   max-width: 480px;
   width: 100%;
   padding: 40px;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.10);
   text-align: center;
 }
 
-.logo img {
-  height: 50px;
-  margin-bottom: 20px;
-}
-
-.title {
-  font-size: 24px;
-  font-weight: 700;
+.reset-title {
+  font-size: 22px;
+  font-weight: 800;
   color: #111827;
   margin: 0 0 8px 0;
 }
 
-.instruction {
-  font-size: 16px;
+.reset-subtitle {
+  font-size: 14px;
   color: #6b7280;
   margin: 0 0 24px 0;
 }
 
-.form {
+.reset-field {
   text-align: left;
+  margin-bottom: 16px;
 }
 
-.form-group {
-  margin-bottom: 20px;
-}
-
-.label {
+.reset-field label {
   display: block;
   font-size: 14px;
   font-weight: 500;
   color: #374151;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.input {
+.reset-field input {
   width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #d1d5db;
-  border-radius: 12px;
-  background: #f9fafb;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   font-size: 16px;
+  background: #f9fafb;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s;
 }
 
-.code-input {
-  text-align: center;
-  font-size: 24px;
-  font-weight: bold;
-  letter-spacing: 0.5em;
-  font-family: monospace;
-}
-
-.input:focus {
+.reset-field input:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  background: #ffffff;
 }
 
-.input-error {
-  border-color: #ef4444;
-}
-
-.password-wrapper {
+.relative {
   position: relative;
 }
 
-.password-toggle {
+.eye-btn {
   position: absolute;
   right: 12px;
   top: 50%;
@@ -218,56 +163,49 @@ async function resetPassword() {
   cursor: pointer;
 }
 
-.btn-primary {
+.reset-btn {
   width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 9999px;
   background-color: #2563eb;
   color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 14px;
   font-weight: 600;
   font-size: 16px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: background-color 0.2s;
+  margin-top: 8px;
 }
 
-.btn-primary:hover:not(:disabled) {
+.reset-btn:hover:not(:disabled) {
   background-color: #1d4ed8;
 }
 
-.btn-primary:disabled {
+.reset-btn:disabled {
   background-color: #d1d5db;
   cursor: not-allowed;
 }
 
-.error-message {
+.reset-error {
   color: #ef4444;
   font-size: 14px;
   margin-top: 12px;
 }
 
-.success-message {
+.reset-success {
   color: #10b981;
   font-size: 14px;
   margin-top: 12px;
 }
 
-.back-link {
+.reset-link {
+  display: inline-block;
   margin-top: 24px;
-  text-align: center;
-}
-
-.back-link a {
   color: #2563eb;
-  text-decoration: none;
   font-size: 14px;
+  text-decoration: none;
 }
 
-.back-link a:hover {
+.reset-link:hover {
   text-decoration: underline;
 }
 </style>
