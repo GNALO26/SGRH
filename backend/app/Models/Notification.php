@@ -13,6 +13,7 @@ class Notification extends Model
         'user_id',
         'icon',
         'message',
+        'link',    // ← ajouté
         'time',
         'read',
     ];

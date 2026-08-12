@@ -35,20 +35,16 @@ class LeaveController extends Controller
     {
         $request->validate(['status' => 'required|in:approved,rejected']);
 
-        // Récupérer le modèle directement (sans l'injection implicite qui peut être buggée)
         $leave = Leave::findOrFail($id);
         $leave->update([
             'status'      => $request->status,
             'approved_by' => $request->user()->id,
         ]);
 
-        // Recharger manuellement depuis la base de données avec la relation user
         $leave = Leave::with('user')->find($leave->id);
-
         $employee   = $leave->user;
         $statusText = $request->status === 'approved' ? 'validé' : 'refusé';
 
-        // Logs et notifications protégés
         try {
             $this->activityService->log(
                 $request->user(),
@@ -61,14 +57,14 @@ class LeaveController extends Controller
                     $employee,
                     "Votre congé du {$leave->start_date} au {$leave->end_date} a été {$statusText}.",
                     'fas fa-calendar-check',
-                    now()->diffForHumans()
+                    now()->diffForHumans(),
+                    '/employee/demandes'   // ← lien employé
                 );
             }
         } catch (\Exception $e) {
             report($e);
         }
 
-        // Retourner l'objet complet pour le frontend
         return response()->json([
             'id'         => $leave->id,
             'user'       => $leave->user ? ['id' => $leave->user->id, 'name' => $leave->user->name] : null,

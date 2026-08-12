@@ -7,10 +7,16 @@
       </button>
     </div>
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow divide-y dark:divide-gray-700">
-      <div v-for="notif in notifications" :key="notif.id" class="p-4 flex items-start gap-3" :class="{'bg-blue-50 dark:bg-blue-900': !notif.read}">
+      <div
+        v-for="notif in notifications"
+        :key="notif.id"
+        class="p-4 flex items-start gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        :class="{ 'bg-blue-50 dark:bg-blue-900': !notif.read }"
+        @click="handleClick(notif)"
+      >
         <i :class="notif.icon" class="text-xl text-blue-500 mt-1"></i>
         <div class="flex-1">
-          <p :class="{'font-semibold': !notif.read}">{{ notif.message }}</p>
+          <p :class="{ 'font-semibold': !notif.read }">{{ notif.message }}</p>
           <p class="text-sm text-gray-400 dark:text-gray-500">{{ timeAgo(notif.created_at) }}</p>
         </div>
         <span v-if="!notif.read" class="h-2 w-2 bg-blue-500 rounded-full mt-2"></span>
@@ -22,11 +28,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api/axios'
-import { useAdminNotifications } from '@/composables/useAdminNotifications'
 
+const router = useRouter()
 const notifications = ref([])
-const { markAllAsRead } = useAdminNotifications()
 
 function timeAgo(dateString) {
   const now = new Date()
@@ -51,8 +57,22 @@ async function fetchNotifications() {
 }
 
 async function markAllRead() {
-  await markAllAsRead()
-  notifications.value.forEach(n => n.read = true)
+  try {
+    await api.post('/admin/notifications/read')
+    notifications.value.forEach(n => n.read = true)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function handleClick(notif) {
+  if (!notif.read) {
+    notif.read = true
+    api.post('/admin/notifications/read', { ids: [notif.id] }).catch(() => {})
+  }
+  if (notif.link) {
+    router.push(notif.link)
+  }
 }
 
 onMounted(fetchNotifications)

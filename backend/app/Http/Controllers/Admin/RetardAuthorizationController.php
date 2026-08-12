@@ -18,47 +18,41 @@ class RetardAuthorizationController extends Controller
 
     public function index(): JsonResponse
     {
-        $authorizations = RetardAuthorization::with('user')
-            ->latest()
-            ->paginate(20);
+        $authorizations = RetardAuthorization::with('user')->latest()->paginate(20);
         return response()->json($authorizations);
     }
 
     public function update(Request $request, RetardAuthorization $retardAuthorization): JsonResponse
     {
-        $request->validate([
-            'status' => 'required|in:approved,rejected',
-        ]);
+        $request->validate(['status' => 'required|in:approved,rejected']);
 
         $retardAuthorization->update([
             'status'      => $request->status,
             'approved_by' => $request->user()->id,
         ]);
 
-        $employee = $retardAuthorization->user;
+        $retardAuthorization->load('user');
+        $employee   = $retardAuthorization->user;
         $statusText = $request->status === 'approved' ? 'validée' : 'refusée';
 
-        if ($employee) {
+        try {
             $this->activityService->log(
                 $request->user(),
                 "autorisation_retard_{$request->status}",
-                "L'autorisation de retard de {$employee->name} pour le {$retardAuthorization->date->format('d/m/Y')} a été {$statusText}.",
+                "Autorisation de retard {$statusText} : " . ($employee?->name ?? 'employé supprimé') . " ({$retardAuthorization->date->format('d/m/Y')})",
                 'fas fa-clock'
             );
-
-            $this->notificationService->createForUser(
-                $employee,
-                "Votre autorisation de retard du {$retardAuthorization->date->format('d/m/Y')} a été {$statusText}.",
-                'fas fa-clock',
-                now()->diffForHumans()
-            );
-        } else {
-            $this->activityService->log(
-                $request->user(),
-                "autorisation_retard_{$request->status}",
-                "Une autorisation de retard a été {$statusText} (utilisateur supprimé).",
-                'fas fa-clock'
-            );
+            if ($employee) {
+                $this->notificationService->createForUser(
+                    $employee,
+                    "Votre autorisation de retard du {$retardAuthorization->date->format('d/m/Y')} a été {$statusText}.",
+                    'fas fa-clock',
+                    now()->diffForHumans(),
+                    '/employee/demandes'
+                );
+            }
+        } catch (\Exception $e) {
+            report($e);
         }
 
         return response()->json($retardAuthorization);

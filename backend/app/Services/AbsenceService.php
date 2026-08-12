@@ -27,7 +27,7 @@ class AbsenceService
         }
 
         $endDate = $endDate ?? Carbon::yesterday();
-        $endDate = $endDate->endOfDay(); // on prend la fin de la journée
+        $endDate = $endDate->endOfDay();
 
         $lastLogin = $user->last_login_at
             ? Carbon::parse($user->last_login_at)->startOfDay()
@@ -86,19 +86,23 @@ class AbsenceService
         }
 
         if ($created) {
-            $admins = User::where('role', 'admin')->get();
-            foreach ($admins as $admin) {
-                app(NotificationService::class)->createForUser(
-                    $admin,
+            try {
+                app(NotificationService::class)->createForAdmins(
                     "Nouvelle absence non justifiée pour {$user->name}",
-                    'fas fa-exclamation-triangle'
+                    'fas fa-exclamation-triangle',
+                    '/admin/unjustified-absences'   // ← lien admin
                 );
+            } catch (\Exception $e) {
+                report($e);
             }
         }
 
         return $created;
     }
 
+    /**
+     * Regroupe une liste de dates consécutives en plages.
+     */
     private function groupConsecutiveDates(array $dates): array
     {
         if (empty($dates)) return [];
