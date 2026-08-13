@@ -3,6 +3,9 @@
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-bold dark:text-white">Mes présences</h1>
       <div class="flex gap-2">
+        <button @click="download('csv')" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
+          <i class="fas fa-download mr-1"></i>CSV
+        </button>
         <button @click="download('pdf')" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
           <i class="fas fa-file-pdf mr-1"></i>PDF
         </button>
@@ -36,7 +39,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="att in attendances" :key="att.id" class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <tr
+              v-for="att in attendances"
+              :key="att.id"
+              :id="`att-${att.id}`"
+              class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
               <td class="py-3 px-4 dark:text-white">{{ att.date }}</td>
               <td class="py-3 px-4 dark:text-white">{{ att.check_in_time }}</td>
               <td class="py-3 px-4"><span class="px-2 py-1 rounded-full text-xs" :class="att.statusClass">{{ att.statusLabel }}</span></td>
@@ -56,18 +64,17 @@
 import { ref, onMounted } from 'vue'
 import api from '@/api/axios'
 import Swal from 'sweetalert2'
+import { useHighlight } from '@/composables/useHighlight'
 
 const attendances = ref([])
 const startDate = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().substr(0,10))
 const endDate = ref(new Date().toISOString().substr(0,10))
 const filterStatus = ref('')
 
+useHighlight()
+
 async function fetchData() {
-  const params = {
-    start_date: startDate.value,
-    end_date: endDate.value,
-    status: filterStatus.value,
-  }
+  const params = { start_date: startDate.value, end_date: endDate.value, status: filterStatus.value }
   const { data } = await api.get('/employee/attendance/history', { params })
   attendances.value = data.data || data
   attendances.value.forEach(att => {

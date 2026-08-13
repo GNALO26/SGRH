@@ -85,3 +85,8 @@ body {
 
 .border-custom { border-color: var(--color-border); }
 .shadow-custom { box-shadow: 0 2px 8px var(--color-shadow); }
+
+.highlighted-item {
+  background-color: #fef08a;
+  transition: background-color 1s ease;
+}

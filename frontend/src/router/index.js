@@ -14,7 +14,6 @@ const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
   { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
-  // 2FA
   { path: '/verify-2fa', name: 'TwoFactorVerify', component: () => import('@/views/TwoFactorVerify.vue'), meta: { guest: true } },
 
   // ===================== EMPLOYÉ =====================
