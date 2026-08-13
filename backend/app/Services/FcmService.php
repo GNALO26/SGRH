@@ -32,9 +32,6 @@ class FcmService
         $this->accessToken = $authToken['access_token'] ?? '';
     }
 
-    /**
-     * Envoie une notification push à un token FCM.
-     */
     public function sendToDevice(string $token, string $title, string $body, array $data = []): bool
     {
         if (!$this->accessToken) {
@@ -53,14 +50,14 @@ class FcmService
                 'android' => [
                     'priority'     => 'high',
                     'notification' => [
-                        'sound'      => 'default',
-                        'channel_id' => 'default',
+                        'sound'      => 'notification', // sans extension .mp3
+                        'channel_id' => 'sgrh_notifications',
                     ],
                 ],
                 'apns' => [
                     'payload' => [
                         'aps' => [
-                            'sound' => 'default',
+                            'sound' => 'notification.mp3',
                         ],
                     ],
                 ],
