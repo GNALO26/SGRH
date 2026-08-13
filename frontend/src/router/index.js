@@ -1,22 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
+import { Capacitor } from '@capacitor/core'
 import Login from '@/views/Login.vue'
 import EmployeeLayout from '@/layouts/EmployeeLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const routes = [
-  // ===================== LANDING PAGE (publiques) =====================
+  // Landing page (publiques)
   { path: '/', name: 'Home', component: () => import('@/views/landing/HomePage.vue'), meta: { guest: true } },
   { path: '/fonctionnalites', name: 'Features', component: () => import('@/views/landing/FeaturesPage.vue'), meta: { guest: true } },
   { path: '/telechargement', name: 'Download', component: () => import('@/views/landing/DownloadPage.vue'), meta: { guest: true } },
 
-  // ===================== AUTH =====================
+  // Authentification
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { guest: true } },
   { path: '/reset-password', name: 'ResetPassword', component: () => import('@/views/ResetPassword.vue'), meta: { guest: true } },
   { path: '/verify-2fa', name: 'TwoFactorVerify', component: () => import('@/views/TwoFactorVerify.vue'), meta: { guest: true } },
 
-  // ===================== EMPLOYÉ =====================
+  // Employé
   {
     path: '/employee/explain-absence',
     name: 'ExplainAbsence',
@@ -42,7 +43,7 @@ const routes = [
     ]
   },
 
-  // ===================== ADMIN =====================
+  // Admin
   {
     path: '/admin',
     component: AdminLayout,
@@ -73,6 +74,11 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
+  // Redirection de la racine vers /login sur mobile natif
+  if (to.path === '/' && Capacitor.isNativePlatform()) {
+    return '/login'
+  }
+
   const auth = useAuthStore()
 
   if (to.matched.some(r => r.meta.requiresAuth)) {
