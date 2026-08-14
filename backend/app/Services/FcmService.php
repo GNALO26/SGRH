@@ -50,7 +50,7 @@ class FcmService
                 'android' => [
                     'priority'     => 'high',
                     'notification' => [
-                        'sound'      => 'notification', // sans extension .mp3
+                        'sound'      => 'default', // sans extension .mp3
                         'channel_id' => 'sgrh_notifications',
                     ],
                 ],
