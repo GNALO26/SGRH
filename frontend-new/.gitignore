@@ -18,6 +18,8 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
+.env.mobile
+.env.production
 
 # IDE / editor
 .vscode/
